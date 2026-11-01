@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=KDictation
+Name[es]=KDictation (Dictado por Voz IA)
+Comment=Universal Voice Dictation HUD for KDE Plasma Wayland powered by Whisper & PipeWire
+Comment[es]=Dictado universal por voz con IA para KDE Plasma Wayland con Whisper y PipeWire
+Exec=kdictation
+Icon=audio-input-microphone
+Categories=Utility;Accessibility;AudioVideo;KDE;Qt;
+Terminal=false
+StartupNotify=false
