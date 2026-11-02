@@ -1,6 +1,5 @@
 <RCC>
     <qresource prefix="/org/cesar/kdictation">
         <file>qml/main.qml</file>
-        <file>qml/LiquidGlassCard.qml</file>
     </qresource>
 </RCC>

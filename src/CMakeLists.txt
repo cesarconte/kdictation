@@ -27,7 +27,6 @@ target_link_libraries(kdictation PRIVATE
     Qt6::Qml
     Qt6::Quick
     Qt6::QuickControls2
-    LayerShellQt::Interface
 )
 
 install(TARGETS kdictation ${KDE_INSTALL_TARGETS_DEFAULT_ARGS})

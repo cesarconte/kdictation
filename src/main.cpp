@@ -6,7 +6,6 @@
 #include "dictationcontroller.h"
 
 #include <KGlobalAccel>
-#include <LayerShellQt/Window>
 
 #include <QAction>
 #include <QCommandLineParser>
@@ -14,7 +13,6 @@
 #include <QDBusInterface>
 #include <QGuiApplication>
 #include <QKeySequence>
-#include <QMargins>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
 #include <QQuickWindow>
@@ -65,17 +63,6 @@ int main(int argc, char *argv[])
 
     if (qmlEngine.rootObjects().isEmpty()) {
         return -1;
-    }
-
-    if (auto *win = qobject_cast<QQuickWindow *>(qmlEngine.rootObjects().first())) {
-        if (auto *layerWin = LayerShellQt::Window::get(win)) {
-            layerWin->setLayer(LayerShellQt::Window::LayerOverlay);
-            layerWin->setAnchors(LayerShellQt::Window::AnchorBottom);
-            layerWin->setMargins(QMargins(0, 0, 0, 64));
-            layerWin->setExclusiveZone(0);
-            layerWin->setKeyboardInteractivity(LayerShellQt::Window::KeyboardInteractivityOnDemand);
-            layerWin->setScope(QStringLiteral("kdictation"));
-        }
     }
 
     if (parser.isSet(toggleOpt)) {

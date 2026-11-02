@@ -158,16 +158,14 @@ Kirigami.ApplicationWindow {
                 }
             }
 
-            // Recessed Last Transcript Box
-            LiquidGlassCard {
+            // Framed Last Transcript Box
+            QQC2.Frame {
                 Layout.fillWidth: true
                 Layout.preferredHeight: 54
-                glassStyle: "recessed"
-                radius: 12
+                padding: Kirigami.Units.smallSpacing
 
                 RowLayout {
                     anchors.fill: parent
-                    anchors.margins: 8
                     spacing: 8
 
                     QQC2.Label {
@@ -201,16 +199,14 @@ Kirigami.ApplicationWindow {
             }
 
             // Expandable History Section
-            LiquidGlassCard {
+            QQC2.Frame {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 visible: root.expandedHistory
-                glassStyle: "recessed"
-                radius: 12
+                padding: Kirigami.Units.smallSpacing
 
                 ColumnLayout {
                     anchors.fill: parent
-                    anchors.margins: 8
                     spacing: 4
 
                     RowLayout {
