@@ -10,15 +10,13 @@ import QtQuick.Controls as QQC2
 import QtQuick.Layouts
 import org.kde.kirigami as Kirigami
 
-Window {
+Kirigami.ApplicationWindow {
     id: root
 
     width: 440
-    height: expandedHistory ? 320 : 156
+    height: expandedHistory ? 320 : 160
     visible: Dictation ? Dictation.hudVisible : true
-    color: "transparent"
-    flags: Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint
-    title: "KDictation"
+    title: i18n("KDictation — Dictado por Voz IA")
 
     property bool expandedHistory: false
 
@@ -28,17 +26,10 @@ Window {
         return (m < 10 ? "0" + m : "" + m) + ":" + (s < 10 ? "0" + s : "" + s);
     }
 
-    LiquidGlassCard {
+    ColumnLayout {
         anchors.fill: parent
-        glassStyle: "shell"
-        glassOpacity: 0.90
-        isHighlighted: Dictation ? Dictation.recording : false
-        radius: 20
-
-        ColumnLayout {
-            anchors.fill: parent
-            anchors.margins: 12
-            spacing: 8
+        anchors.margins: Kirigami.Units.mediumSpacing
+        spacing: 8
 
             // Top Pill Bar
             RowLayout {
@@ -138,19 +129,6 @@ Window {
                             onToggled: root.expandedHistory = checked
                             QQC2.ToolTip.visible: hovered
                             QQC2.ToolTip.text: "Mostrar historial de dictados"
-                        }
-
-                        QQC2.ToolButton {
-                            icon.name: "window-close"
-                            implicitWidth: 26
-                            implicitHeight: 26
-                            onClicked: {
-                                if (Dictation) {
-                                    Dictation.hudVisible = false;
-                                }
-                            }
-                            QQC2.ToolTip.visible: hovered
-                            QQC2.ToolTip.text: "Ocultar HUD (Meta+Alt+D para volver a mostrar)"
                         }
                     }
 
@@ -310,5 +288,4 @@ Window {
                 }
             }
         }
-    }
 }
