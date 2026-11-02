@@ -51,12 +51,12 @@ Window {
                     Layout.preferredHeight: 38
                     radius: 19
                     color: (Dictation && Dictation.recording)
-                        ? "#ff3b30"
-                        : Qt.rgba(0.0, 0.68, 0.92, 0.28)
+                        ? Kirigami.Theme.negativeTextColor
+                        : Qt.rgba(Kirigami.Theme.highlightColor.r, Kirigami.Theme.highlightColor.g, Kirigami.Theme.highlightColor.b, 0.22)
                     border.width: 1
                     border.color: (Dictation && Dictation.recording)
-                        ? "#ff8078"
-                        : "#00e5ff"
+                        ? Kirigami.Theme.negativeTextColor
+                        : Kirigami.Theme.highlightColor
 
                     Kirigami.Icon {
                         anchors.centerIn: parent
@@ -65,7 +65,7 @@ Window {
                         source: (Dictation && Dictation.recording)
                             ? "media-playback-stop"
                             : "audio-input-microphone"
-                        color: "white"
+                        color: (Dictation && Dictation.recording) ? "#ffffff" : Kirigami.Theme.highlightColor
                     }
 
                     MouseArea {
@@ -93,7 +93,7 @@ Window {
                                 ? "Dictando · " + root.formatTime(Dictation.recordingSeconds)
                                 : "KDictation IA"
                             font.bold: true
-                            color: (Dictation && Dictation.recording) ? "#ff6961" : "white"
+                            color: (Dictation && Dictation.recording) ? Kirigami.Theme.negativeTextColor : Kirigami.Theme.textColor
                         }
 
                         Item { Layout.fillWidth: true }
@@ -159,13 +159,13 @@ Window {
                         Layout.fillWidth: true
                         Layout.preferredHeight: 6
                         radius: 3
-                        color: Qt.rgba(1, 1, 1, 0.12)
+                        color: Kirigami.ColorUtils.linearInterpolation(Kirigami.Theme.backgroundColor, Kirigami.Theme.textColor, 0.12)
 
                         Rectangle {
                             width: parent.width * (Dictation ? Math.max(0.04, Dictation.audioLevel) : 0.04)
                             height: parent.height
                             radius: 3
-                            color: (Dictation && Dictation.recording) ? "#30d158" : "#00e5ff"
+                            color: (Dictation && Dictation.recording) ? Kirigami.Theme.negativeTextColor : Kirigami.Theme.highlightColor
                             Behavior on width { NumberAnimation { duration: 90 } }
                         }
                     }
@@ -174,7 +174,7 @@ Window {
                         Layout.fillWidth: true
                         text: Dictation ? Dictation.statusMessage : ""
                         font.pixelSize: Kirigami.Theme.smallFont.pixelSize
-                        color: Qt.rgba(1, 1, 1, 0.72)
+                        color: Kirigami.Theme.disabledTextColor
                         elide: Text.ElideRight
                     }
                 }
@@ -204,8 +204,8 @@ Window {
                         elide: Text.ElideRight
                         font.pixelSize: Kirigami.Theme.smallFont.pixelSize
                         color: (Dictation && Dictation.lastTranscript.length > 0)
-                            ? "white"
-                            : Qt.rgba(1, 1, 1, 0.50)
+                            ? Kirigami.Theme.textColor
+                            : Kirigami.Theme.disabledTextColor
                     }
 
                     QQC2.ToolButton {
@@ -241,7 +241,7 @@ Window {
                             text: "Historial reciente"
                             font.pixelSize: Kirigami.Theme.smallFont.pixelSize
                             font.bold: true
-                            color: Qt.rgba(1, 1, 1, 0.85)
+                            color: Kirigami.Theme.textColor
                         }
                         Item { Layout.fillWidth: true }
                         QQC2.ToolButton {
@@ -270,7 +270,9 @@ Window {
                             width: ListView.view.width
                             height: 32
                             radius: 8
-                            color: Qt.rgba(1, 1, 1, 0.06)
+                            color: Kirigami.Theme.backgroundColor
+                            border.width: 1
+                            border.color: Kirigami.ColorUtils.linearInterpolation(Kirigami.Theme.backgroundColor, Kirigami.Theme.textColor, 0.10)
 
                             RowLayout {
                                 anchors.fill: parent
@@ -283,13 +285,13 @@ Window {
                                     text: modelData.text || ""
                                     elide: Text.ElideRight
                                     font.pixelSize: Kirigami.Theme.smallFont.pixelSize
-                                    color: "white"
+                                    color: Kirigami.Theme.textColor
                                 }
 
                                 QQC2.Label {
                                     text: modelData.timestamp || ""
                                     font.pixelSize: Kirigami.Theme.smallFont.pixelSize - 1
-                                    color: Qt.rgba(1, 1, 1, 0.55)
+                                    color: Kirigami.Theme.disabledTextColor
                                 }
 
                                 QQC2.ToolButton {
