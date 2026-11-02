@@ -6,6 +6,6 @@ Comment=Universal Voice Dictation HUD for KDE Plasma Wayland powered by Whisper 
 Comment[es]=Dictado universal por voz con IA para KDE Plasma Wayland con Whisper y PipeWire
 Exec=kdictation
 Icon=audio-input-microphone
-Categories=Utility;Accessibility;AudioVideo;KDE;Qt;
+Categories=Utility;Accessibility;KDE;Qt;
 Terminal=false
 StartupNotify=false
