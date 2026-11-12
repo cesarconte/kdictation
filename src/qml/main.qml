@@ -1,6 +1,18 @@
 /*
     SPDX-FileCopyrightText: 2026 Cesar
     SPDX-License-Identifier: GPL-3.0-or-later
+
+    KDictation — Dictado por voz con IA local.
+
+    Diseño Golden Gate / Liquid Glass (CachyOS.UI):
+      * ventana `CachyWindow` con marco translúcido, cabecera de 44 px con el
+        divisor duro de 1 px y radio de 20 px;
+      * la acción principal (dictar) es el botón redondo de la cabecera, a la
+        izquierda, junto al estado y al cronómetro;
+      * las acciones secundarias (idioma, puntuación con IA, historial) viven
+        en la cabecera derecha;
+      * la transcripción se presenta sobre una `CachyCard`;
+      * toda la paleta, los radios y los espaciados salen de `CachyTheme`.
 */
 
 pragma ComponentBehavior: Bound
@@ -9,14 +21,27 @@ import QtQuick
 import QtQuick.Controls as QQC2
 import QtQuick.Layouts
 import org.kde.kirigami as Kirigami
+import CachyOS.UI
 
-Kirigami.ApplicationWindow {
+CachyWindow {
     id: root
 
-    width: 440
-    height: expandedHistory ? 320 : 160
+    title: CachyI18n.i18n("KDictation — Dictado por Voz IA")
+
+    // Canonical proportion of the ecosystem (1.50): the HUD keeps a stable
+    // shape and the history replaces the transcript instead of stretching it.
+    width: 480
+    height: 320
+    minimumWidth: 420
+    minimumHeight: 300
     visible: Dictation ? Dictation.hudVisible : true
-    title: i18n("KDictation — Dictado por Voz IA")
+
+    showTrafficLights: true
+    showTitleBarDivider: true          // divisor duro de 1 px
+    showWindowFrame: true              // Liquid Glass: blur KWin + rim especular
+    resizable: true
+    cornerRadius: CachyTheme.radiusWindow
+    contentPadded: true                // margen perimetral de 18 px
 
     property bool expandedHistory: false
 
@@ -26,257 +51,312 @@ Kirigami.ApplicationWindow {
         return (m < 10 ? "0" + m : "" + m) + ":" + (s < 10 ? "0" + s : "" + s);
     }
 
-    ColumnLayout {
-        anchors.fill: parent
-        anchors.margins: Kirigami.Units.mediumSpacing
-        spacing: 8
+    // The HUD identifies itself in the leading cluster, so the centred title
+    // is left empty to give the room to the actions.
+    headerCenter: [
+        Item { width: 1; height: 1 }
+    ]
 
-            // Top Pill Bar
-            RowLayout {
+    // =========================================================================
+    // CABECERA — IZQUIERDA: acción principal y estado
+    // =========================================================================
+    headerLeading: [
+        RowLayout {
+            anchors.verticalCenter: parent.verticalCenter
+            spacing: 10
+
+            // Botón de grabación / parada
+            Rectangle {
+                id: recordButton
+                Layout.preferredWidth: 34
+                Layout.preferredHeight: 34
+                radius: 17
+                color: (Dictation && Dictation.recording)
+                    ? "#FF3B30"
+                    : CachyTheme.withAlpha(CachyTheme.accentColor, 0.18)
+                border.width: 1
+                border.color: (Dictation && Dictation.recording)
+                    ? "#FF3B30"
+                    : CachyTheme.accentColor
+
+                Behavior on color { ColorAnimation { duration: CachyTheme.animFast } }
+
+                Kirigami.Icon {
+                    anchors.centerIn: parent
+                    width: 18
+                    height: 18
+                    source: (Dictation && Dictation.recording)
+                        ? "media-playback-stop"
+                        : "audio-input-microphone"
+                    color: (Dictation && Dictation.recording) ? "#FFFFFF" : CachyTheme.accentColor
+                }
+
+                HoverHandler {
+                    id: recordHover
+                    cursorShape: Qt.PointingHandCursor
+                }
+
+                TapHandler {
+                    onTapped: {
+                        if (Dictation) {
+                            Dictation.toggleRecording();
+                        }
+                    }
+                }
+
+                QQC2.ToolTip.visible: recordHover.hovered
+                QQC2.ToolTip.text: (Dictation && Dictation.recording)
+                    ? CachyI18n.i18n("Detener la grabación")
+                    : CachyI18n.i18n("Empezar a dictar (Meta+Alt+D)")
+                QQC2.ToolTip.delay: 400
+            }
+
+            // Estado y cronómetro
+            Text {
                 Layout.fillWidth: true
-                spacing: 10
+                Layout.minimumWidth: 0
+                Layout.maximumWidth: 190
+                text: (Dictation && Dictation.recording)
+                    ? CachyI18n.i18n("Dictando · ") + root.formatTime(Dictation.recordingSeconds)
+                    : CachyI18n.i18n("KDictation IA")
+                font.pixelSize: 13
+                font.weight: Font.DemiBold
+                color: (Dictation && Dictation.recording) ? "#FF3B30" : CachyTheme.textPrimary
+                elide: Text.ElideRight
+            }
+        }
+    ]
 
-                // Record / Stop Action Button
+    // =========================================================================
+    // CABECERA — DERECHA: acciones secundarias
+    // =========================================================================
+    headerActions: [
+        RowLayout {
+            anchors.verticalCenter: parent.verticalCenter
+            spacing: 6
+
+            // Selector de idioma (ES/EN/FR/DE)
+            CachyToolbarButton {
+                text: Dictation ? Dictation.language.toUpperCase() : "ES"
+                tooltipText: CachyI18n.i18n("Cambiar el idioma de Whisper (ES/EN/FR/DE)")
+                onClicked: {
+                    if (!Dictation) return;
+                    const langs = ["es", "en", "fr", "de"];
+                    const idx = langs.indexOf(Dictation.language);
+                    Dictation.language = langs[(idx + 1) % langs.length];
+                }
+            }
+
+            // Puntuación inteligente con IA local
+            CachyToolbarButton {
+                checkable: true
+                checked: Dictation ? Dictation.smartFormatting : false
+                iconName: "tools-check-spelling"
+                tooltipText: CachyI18n.i18n("Puntuación inteligente con IA local (Ollama)")
+                onToggled: (nextState) => {
+                    if (Dictation) {
+                        Dictation.smartFormatting = nextState;
+                    }
+                }
+            }
+
+            // Historial de dictados
+            CachyToolbarButton {
+                checkable: true
+                checked: root.expandedHistory
+                iconName: "view-history-symbolic"
+                tooltipText: CachyI18n.i18n("Mostrar el historial de dictados")
+                onToggled: (nextState) => root.expandedHistory = nextState
+            }
+        }
+    ]
+
+    // =========================================================================
+    // CONTENIDO
+    // =========================================================================
+    contentData: [
+        ColumnLayout {
+            anchors.fill: parent
+            spacing: CachyTheme.spacingSmall
+
+            // -----------------------------------------------------------------
+            // Nivel de audio en vivo
+            // -----------------------------------------------------------------
+            Rectangle {
+                Layout.fillWidth: true
+                Layout.minimumWidth: 0
+                Layout.preferredHeight: 6
+                radius: 3
+                color: CachyTheme.withAlpha(CachyTheme.textPrimary, 0.10)
+
                 Rectangle {
-                    Layout.preferredWidth: 38
-                    Layout.preferredHeight: 38
-                    radius: 19
-                    color: (Dictation && Dictation.recording)
-                        ? Kirigami.Theme.negativeTextColor
-                        : Qt.rgba(Kirigami.Theme.highlightColor.r, Kirigami.Theme.highlightColor.g, Kirigami.Theme.highlightColor.b, 0.22)
-                    border.width: 1
-                    border.color: (Dictation && Dictation.recording)
-                        ? Kirigami.Theme.negativeTextColor
-                        : Kirigami.Theme.highlightColor
+                    width: parent.width * (Dictation ? Math.max(0.04, Dictation.audioLevel) : 0.04)
+                    height: parent.height
+                    radius: 3
+                    color: (Dictation && Dictation.recording) ? "#FF3B30" : CachyTheme.accentColor
 
-                    Kirigami.Icon {
-                        anchors.centerIn: parent
-                        width: 20
-                        height: 20
-                        source: (Dictation && Dictation.recording)
-                            ? "media-playback-stop"
-                            : "audio-input-microphone"
-                        color: (Dictation && Dictation.recording) ? "#ffffff" : Kirigami.Theme.highlightColor
-                    }
-
-                    MouseArea {
-                        anchors.fill: parent
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: {
-                            if (Dictation) {
-                                Dictation.toggleRecording();
-                            }
-                        }
-                    }
-                }
-
-                // Status & Live Audio Level Bar
-                ColumnLayout {
-                    Layout.fillWidth: true
-                    spacing: 4
-
-                    RowLayout {
-                        Layout.fillWidth: true
-                        spacing: 6
-
-                        QQC2.Label {
-                            text: (Dictation && Dictation.recording)
-                                ? "Dictando · " + root.formatTime(Dictation.recordingSeconds)
-                                : "KDictation IA"
-                            font.bold: true
-                            color: (Dictation && Dictation.recording) ? Kirigami.Theme.negativeTextColor : Kirigami.Theme.textColor
-                        }
-
-                        Item { Layout.fillWidth: true }
-
-                        // Language selector pill
-                        QQC2.Button {
-                            text: Dictation ? Dictation.language.toUpperCase() : "ES"
-                            flat: true
-                            implicitHeight: 24
-                            onClicked: {
-                                if (!Dictation) return;
-                                const langs = ["es", "en", "fr", "de"];
-                                const idx = langs.indexOf(Dictation.language);
-                                Dictation.language = langs[(idx + 1) % langs.length];
-                            }
-                            QQC2.ToolTip.visible: hovered
-                            QQC2.ToolTip.text: "Cambiar idioma de Whisper (ES/EN/FR/DE)"
-                        }
-
-                        // Smart AI punctuation toggle
-                        QQC2.ToolButton {
-                            icon.name: "tools-check-spelling"
-                            checkable: true
-                            checked: Dictation ? Dictation.smartFormatting : false
-                            implicitWidth: 26
-                            implicitHeight: 26
-                            onToggled: {
-                                if (Dictation) {
-                                    Dictation.smartFormatting = checked;
-                                }
-                            }
-                            QQC2.ToolTip.visible: hovered
-                            QQC2.ToolTip.text: "Puntuación inteligente con IA local (Ollama)"
-                        }
-
-                        QQC2.ToolButton {
-                            icon.name: "view-history"
-                            checkable: true
-                            checked: root.expandedHistory
-                            implicitWidth: 26
-                            implicitHeight: 26
-                            onToggled: root.expandedHistory = checked
-                            QQC2.ToolTip.visible: hovered
-                            QQC2.ToolTip.text: "Mostrar historial de dictados"
-                        }
-                    }
-
-                    // Live Audio Waveform / Level Bar
-                    Rectangle {
-                        Layout.fillWidth: true
-                        Layout.preferredHeight: 6
-                        radius: 3
-                        color: Kirigami.ColorUtils.linearInterpolation(Kirigami.Theme.backgroundColor, Kirigami.Theme.textColor, 0.12)
-
-                        Rectangle {
-                            width: parent.width * (Dictation ? Math.max(0.04, Dictation.audioLevel) : 0.04)
-                            height: parent.height
-                            radius: 3
-                            color: (Dictation && Dictation.recording) ? Kirigami.Theme.negativeTextColor : Kirigami.Theme.highlightColor
-                            Behavior on width { NumberAnimation { duration: 90 } }
-                        }
-                    }
-
-                    QQC2.Label {
-                        Layout.fillWidth: true
-                        text: Dictation ? Dictation.statusMessage : ""
-                        font.pixelSize: Kirigami.Theme.smallFont.pixelSize
-                        color: Kirigami.Theme.disabledTextColor
-                        elide: Text.ElideRight
+                    Behavior on width {
+                        NumberAnimation { duration: 90 }
                     }
                 }
             }
 
-            // Framed Last Transcript Box
-            QQC2.Frame {
+            // -----------------------------------------------------------------
+            // Mensaje de estado
+            // -----------------------------------------------------------------
+            Text {
                 Layout.fillWidth: true
-                Layout.preferredHeight: 54
-                padding: Kirigami.Units.smallSpacing
-
-                RowLayout {
-                    anchors.fill: parent
-                    spacing: 8
-
-                    QQC2.Label {
-                        Layout.fillWidth: true
-                        Layout.fillHeight: true
-                        text: (Dictation && Dictation.lastTranscript.length > 0)
-                            ? Dictation.lastTranscript
-                            : "Pulsa el micrófono o Meta+Alt+D para dictar. Comandos: «coma», «punto y aparte», «nueva línea»..."
-                        wrapMode: Text.WordWrap
-                        verticalAlignment: Text.AlignVCenter
-                        maximumLineCount: 2
-                        elide: Text.ElideRight
-                        font.pixelSize: Kirigami.Theme.smallFont.pixelSize
-                        color: (Dictation && Dictation.lastTranscript.length > 0)
-                            ? Kirigami.Theme.textColor
-                            : Kirigami.Theme.disabledTextColor
-                    }
-
-                    QQC2.ToolButton {
-                        icon.name: "edit-copy"
-                        enabled: Dictation && Dictation.lastTranscript.length > 0
-                        onClicked: {
-                            if (Dictation) {
-                                Dictation.copyText(Dictation.lastTranscript);
-                            }
-                        }
-                        QQC2.ToolTip.visible: hovered
-                        QQC2.ToolTip.text: "Copiar último dictado"
-                    }
-                }
+                Layout.minimumWidth: 0
+                text: Dictation ? Dictation.statusMessage : ""
+                font.pixelSize: 11
+                color: CachyTheme.textMuted
+                elide: Text.ElideRight
             }
 
-            // Expandable History Section
-            QQC2.Frame {
+            // -----------------------------------------------------------------
+            // Superficie del contenido: transcripción actual o historial
+            // -----------------------------------------------------------------
+            CachyCard {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
-                visible: root.expandedHistory
-                padding: Kirigami.Units.smallSpacing
+                Layout.minimumWidth: 0
 
-                ColumnLayout {
-                    anchors.fill: parent
-                    spacing: 4
+                contentItem: Item {
 
+                    // --- Transcripción actual ---
                     RowLayout {
-                        Layout.fillWidth: true
-                        QQC2.Label {
-                            text: "Historial reciente"
-                            font.pixelSize: Kirigami.Theme.smallFont.pixelSize
-                            font.bold: true
-                            color: Kirigami.Theme.textColor
+                        anchors.fill: parent
+                        spacing: 8
+                        visible: !root.expandedHistory
+
+                        Text {
+                            Layout.fillWidth: true
+                            Layout.minimumWidth: 0
+                            text: (Dictation && Dictation.lastTranscript.length > 0)
+                                ? Dictation.lastTranscript
+                                : CachyI18n.i18n("Pulsa el micrófono o Meta+Alt+D para dictar. Comandos: «coma», «punto y aparte», «nueva línea»…")
+                            wrapMode: Text.WordWrap
+                            verticalAlignment: Text.AlignVCenter
+                            maximumLineCount: 4
+                            elide: Text.ElideRight
+                            font.pixelSize: 13
+                            color: (Dictation && Dictation.lastTranscript.length > 0)
+                                ? CachyTheme.textPrimary
+                                : CachyTheme.textMuted
                         }
-                        Item { Layout.fillWidth: true }
-                        QQC2.ToolButton {
-                            icon.name: "edit-clear"
-                            implicitWidth: 24
-                            implicitHeight: 24
+
+                        CachyToolbarButton {
+                            iconName: "edit-copy"
+                            tooltipText: CachyI18n.i18n("Copiar la última transcripción")
+                            enabled: Dictation && Dictation.lastTranscript.length > 0
                             onClicked: {
                                 if (Dictation) {
-                                    Dictation.clearHistory();
+                                    Dictation.copyText(Dictation.lastTranscript);
                                 }
                             }
-                            QQC2.ToolTip.visible: hovered
-                            QQC2.ToolTip.text: "Limpiar historial"
                         }
                     }
 
-                    ListView {
-                        Layout.fillWidth: true
-                        Layout.fillHeight: true
-                        clip: true
-                        spacing: 4
-                        model: Dictation ? Dictation.history : []
+                    // --- Historial ---
+                    ColumnLayout {
+                        anchors.fill: parent
+                        spacing: 6
+                        visible: root.expandedHistory
 
-                        delegate: Rectangle {
-                            required property var modelData
-                            width: ListView.view.width
-                            height: 32
-                            radius: 8
-                            color: Kirigami.Theme.backgroundColor
-                            border.width: 1
-                            border.color: Kirigami.ColorUtils.linearInterpolation(Kirigami.Theme.backgroundColor, Kirigami.Theme.textColor, 0.10)
+                        RowLayout {
+                            Layout.fillWidth: true
+                            Layout.minimumWidth: 0
+                            spacing: 6
 
-                            RowLayout {
-                                anchors.fill: parent
-                                anchors.leftMargin: 8
-                                anchors.rightMargin: 6
-                                spacing: 6
+                            Text {
+                                Layout.fillWidth: true
+                                Layout.minimumWidth: 0
+                                text: CachyI18n.i18n("Historial reciente")
+                                font.pixelSize: 11
+                                font.weight: Font.DemiBold
+                                color: CachyTheme.textMuted
+                                elide: Text.ElideRight
+                            }
 
-                                QQC2.Label {
-                                    Layout.fillWidth: true
-                                    text: modelData.text || ""
-                                    elide: Text.ElideRight
-                                    font.pixelSize: Kirigami.Theme.smallFont.pixelSize
-                                    color: Kirigami.Theme.textColor
+                            CachyToolbarButton {
+                                iconName: "edit-clear"
+                                tooltipText: CachyI18n.i18n("Limpiar el historial")
+                                onClicked: {
+                                    if (Dictation) {
+                                        Dictation.clearHistory();
+                                    }
+                                }
+                            }
+                        }
+
+                        ListView {
+                            Layout.fillWidth: true
+                            Layout.fillHeight: true
+                            Layout.minimumWidth: 0
+                            clip: true
+                            spacing: 2
+                            model: Dictation ? Dictation.history : []
+
+                            // Empty state
+                            Text {
+                                anchors.centerIn: parent
+                                width: parent.width - 20
+                                horizontalAlignment: Text.AlignHCenter
+                                visible: Dictation ? Dictation.history.length === 0 : true
+                                text: CachyI18n.i18n("Todavía no hay dictados guardados.")
+                                font.pixelSize: 11
+                                color: CachyTheme.textMuted
+                                wrapMode: Text.WordWrap
+                            }
+
+                            delegate: Rectangle {
+                                id: historyRow
+                                required property var modelData
+
+                                width: ListView.view ? ListView.view.width : 0
+                                height: historyText.implicitHeight + 12
+                                radius: CachyTheme.radiusSmall
+                                color: historyHover.hovered ? CachyTheme.cardBackgroundHover : "transparent"
+
+                                Behavior on color {
+                                    ColorAnimation { duration: 120 }
                                 }
 
-                                QQC2.Label {
-                                    text: modelData.timestamp || ""
-                                    font.pixelSize: Kirigami.Theme.smallFont.pixelSize - 1
-                                    color: Kirigami.Theme.disabledTextColor
+                                HoverHandler {
+                                    id: historyHover
+                                    cursorShape: Qt.PointingHandCursor
                                 }
 
-                                QQC2.ToolButton {
-                                    icon.name: "edit-copy"
-                                    implicitWidth: 24
-                                    implicitHeight: 24
-                                    onClicked: {
+                                TapHandler {
+                                    onTapped: {
                                         if (Dictation) {
-                                            Dictation.copyText(modelData.text);
+                                            Dictation.copyText(historyRow.modelData.text);
                                         }
                                     }
+                                }
+
+                                Text {
+                                    id: historyText
+                                    x: 6
+                                    y: 6
+                                    width: Math.max(0, historyRow.width - 12 - 70 - 26)
+                                    text: historyRow.modelData.text || ""
+                                    font.pixelSize: 12
+                                    color: CachyTheme.textPrimary
+                                    wrapMode: Text.WordWrap
+                                    maximumLineCount: 2
+                                    elide: Text.ElideRight
+                                }
+
+                                Text {
+                                    x: Math.max(0, historyRow.width - 70 - 26)
+                                    y: 6
+                                    width: 70
+                                    horizontalAlignment: Text.AlignRight
+                                    text: historyRow.modelData.timestamp || ""
+                                    font.pixelSize: 10
+                                    color: CachyTheme.textMuted
+                                    elide: Text.ElideRight
                                 }
                             }
                         }
@@ -284,4 +364,5 @@ Kirigami.ApplicationWindow {
                 }
             }
         }
+    ]
 }
