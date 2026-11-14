@@ -568,6 +568,14 @@ QString DictationController::findWhisperBinary()
 
 QString DictationController::findWhisperModel()
 {
+    const QString located = QStandardPaths::locate(QStandardPaths::GenericDataLocation, QStringLiteral("kity/models/ggml-base.bin"));
+    if (!located.isEmpty()) {
+        return located;
+    }
+    const QString sysModel = QStringLiteral("/usr/share/kity/models/ggml-base.bin");
+    if (QFileInfo::exists(sysModel)) {
+        return sysModel;
+    }
     const QString kiriModel = QDir::homePath() + QStringLiteral("/.local/share/kiri/models/ggml-base.bin");
     if (QFileInfo::exists(kiriModel)) {
         return kiriModel;
