@@ -576,6 +576,10 @@ QString DictationController::findWhisperModel()
     if (QFileInfo::exists(sysModel)) {
         return sysModel;
     }
+    const QString kityModel = QDir::homePath() + QStringLiteral("/.local/share/kity/models/ggml-base.bin");
+    if (QFileInfo::exists(kityModel)) {
+        return kityModel;
+    }
     const QString kiriModel = QDir::homePath() + QStringLiteral("/.local/share/kiri/models/ggml-base.bin");
     if (QFileInfo::exists(kiriModel)) {
         return kiriModel;
