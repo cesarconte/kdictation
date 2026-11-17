@@ -91,6 +91,8 @@ public Q_SLOTS:
     bool GetPushToTalk() const;
     void Show();
     void Hide();
+    QString TranscribePcm(const QByteArray &pcmData, const QString &lang = QStringLiteral("es"));
+    bool IsEngineReady() const;
 
 Q_SIGNALS:
     void recordingChanged();

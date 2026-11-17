@@ -276,6 +276,26 @@ private Q_SLOTS:
             QCOMPARE(ctrl.whisperModel(), QStringLiteral("ggml-small.bin"));
         }
     }
+
+    void testTranscribePcmDBus()
+    {
+        QTemporaryDir tempDir;
+        QVERIFY(tempDir.isValid());
+
+        DictationController ctrl(tempDir.path());
+        // Wait up to 1 second for background warm model loading
+        for (int i = 0; i < 20 && !ctrl.IsEngineReady(); ++i) {
+            QTest::qWait(50);
+        }
+
+        if (ctrl.IsEngineReady()) {
+            // 1 second of silence
+            QByteArray silencePcm(32000, 0);
+            const QString result = ctrl.TranscribePcm(silencePcm, QStringLiteral("es"));
+            // Silence should be cleaned to empty
+            QVERIFY(result.isEmpty());
+        }
+    }
 };
 
 QTEST_MAIN(TestKDictation)

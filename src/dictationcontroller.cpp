@@ -682,6 +682,25 @@ void DictationController::Hide()
     setHudVisible(false);
 }
 
+QString DictationController::TranscribePcm(const QByteArray &pcmData, const QString &lang)
+{
+    if (!m_whisperEngine || !m_whisperEngine->isModelLoaded() || pcmData.isEmpty()) {
+        return QString();
+    }
+
+    const QString language = lang.trimmed().isEmpty() ? m_language : lang.trimmed();
+    const QString raw = m_whisperEngine->transcribeSync(pcmData, language);
+    QString cleaned = cleanWhisperOutput(raw);
+    cleaned = applyVoiceCommands(cleaned);
+    cleaned = removeFillerWords(cleaned, language);
+    return cleaned;
+}
+
+bool DictationController::IsEngineReady() const
+{
+    return m_whisperEngine && m_whisperEngine->isModelLoaded();
+}
+
 void DictationController::loadState()
 {
     QFile file(m_storageDir + QStringLiteral("/history.json"));
