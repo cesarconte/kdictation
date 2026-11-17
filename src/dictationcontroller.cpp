@@ -161,6 +161,37 @@ void DictationController::setDirectInsertion(bool enabled)
     Q_EMIT directInsertionChanged();
 }
 
+bool DictationController::pushToTalk() const
+{
+    return m_pushToTalk;
+}
+
+void DictationController::setPushToTalk(bool enabled)
+{
+    if (m_pushToTalk == enabled) {
+        return;
+    }
+    m_pushToTalk = enabled;
+    saveState();
+    if (!m_recording && !m_transcribing) {
+        m_statusMessage = m_pushToTalk
+            ? QStringLiteral("Modo Push-to-Talk (mantén Meta+Alt+D)")
+            : QStringLiteral("Listo para dictar (Meta+Alt+D)");
+        Q_EMIT statusMessageChanged();
+    }
+    Q_EMIT pushToTalkChanged();
+}
+
+void DictationController::SetPushToTalk(bool enabled)
+{
+    setPushToTalk(enabled);
+}
+
+bool DictationController::GetPushToTalk() const
+{
+    return pushToTalk();
+}
+
 QString DictationController::lastTranscript() const
 {
     return m_lastTranscript;
@@ -424,6 +455,11 @@ void DictationController::loadState()
     m_language = root.value(QStringLiteral("language")).toString(QStringLiteral("es"));
     m_smartFormatting = root.value(QStringLiteral("smartFormatting")).toBool(false);
     m_directInsertion = root.value(QStringLiteral("directInsertion")).toBool(true);
+    m_pushToTalk = root.value(QStringLiteral("pushToTalk")).toBool(false);
+
+    m_statusMessage = m_pushToTalk
+        ? QStringLiteral("Modo Push-to-Talk (mantén Meta+Alt+D)")
+        : QStringLiteral("Listo para dictar (Meta+Alt+D)");
 
     m_history.clear();
     const QJsonArray arr = root.value(QStringLiteral("history")).toArray();
@@ -443,6 +479,7 @@ void DictationController::saveState() const
     root.insert(QStringLiteral("language"), m_language);
     root.insert(QStringLiteral("smartFormatting"), m_smartFormatting);
     root.insert(QStringLiteral("directInsertion"), m_directInsertion);
+    root.insert(QStringLiteral("pushToTalk"), m_pushToTalk);
 
     QJsonArray arr;
     for (const QVariant &item : m_history) {

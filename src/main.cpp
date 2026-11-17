@@ -39,6 +39,12 @@ int main(int argc, char *argv[])
     QCommandLineOption toggleOpt({QStringLiteral("t"), QStringLiteral("toggle")},
                                  QStringLiteral("Toggle recording on a running instance or start recording immediately."));
     parser.addOption(toggleOpt);
+    QCommandLineOption startOpt(QStringLiteral("start"),
+                                QStringLiteral("Start recording dictation."));
+    parser.addOption(startOpt);
+    QCommandLineOption stopOpt(QStringLiteral("stop"),
+                               QStringLiteral("Stop recording and transcribe."));
+    parser.addOption(stopOpt);
     QCommandLineOption screenshotOpt(QStringLiteral("screenshot"),
                                      QStringLiteral("Capture window screenshot and exit"),
                                      QStringLiteral("path"));
@@ -47,13 +53,19 @@ int main(int argc, char *argv[])
 
     QDBusConnection bus = QDBusConnection::sessionBus();
     if (!bus.registerService(QStringLiteral("org.cesar.kdictation"))) {
-        // Another instance is already running; forward toggle command via D-Bus
+        // Another instance is already running; forward command via D-Bus
         QDBusInterface iface(QStringLiteral("org.cesar.kdictation"),
                              QStringLiteral("/Dictation"),
                              QStringLiteral("org.cesar.kdictation.Dictation"),
                              bus);
         if (iface.isValid()) {
-            iface.call(QStringLiteral("Toggle"));
+            if (parser.isSet(startOpt)) {
+                iface.call(QStringLiteral("StartDictation"));
+            } else if (parser.isSet(stopOpt)) {
+                iface.call(QStringLiteral("StopDictation"));
+            } else {
+                iface.call(QStringLiteral("Toggle"));
+            }
             return 0;
         }
     }
@@ -63,12 +75,28 @@ int main(int argc, char *argv[])
                        &controller,
                        QDBusConnection::ExportAllSlots);
 
-    // Register global shortcut Meta+Alt+D via KGlobalAccel
+    // Register global shortcut Meta+Alt+D via KGlobalAccel with both Toggle and Push-to-Talk support
     auto *toggleAction = new QAction(&app);
     toggleAction->setObjectName(QStringLiteral("toggle_dictation"));
     toggleAction->setText(QStringLiteral("Alternar Dictado por Voz (KDictation)"));
     KGlobalAccel::setGlobalShortcut(toggleAction, QKeySequence(QStringLiteral("Meta+Alt+D")));
-    QObject::connect(toggleAction, &QAction::triggered, &controller, &DictationController::toggleRecording);
+
+    QObject::connect(toggleAction, &QAction::triggered, &controller, [&controller]() {
+        if (!controller.pushToTalk()) {
+            controller.toggleRecording();
+        }
+    });
+
+    QObject::connect(KGlobalAccel::self(), &KGlobalAccel::globalShortcutActiveChanged,
+                     &controller, [&controller, toggleAction](QAction *action, bool active) {
+        if (action == toggleAction && controller.pushToTalk()) {
+            if (active) {
+                controller.startRecording();
+            } else {
+                controller.stopRecording();
+            }
+        }
+    });
 
     QQmlApplicationEngine qmlEngine;
     // The CachyOS.UI design system (Liquid Glass) is installed system wide or

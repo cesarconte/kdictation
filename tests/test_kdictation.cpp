@@ -187,6 +187,28 @@ private Q_SLOTS:
             QCOMPARE(restored.directInsertion(), true);
         }
     }
+
+    void testPushToTalkToggleAndPersistence()
+    {
+        QTemporaryDir tempDir;
+        QVERIFY(tempDir.isValid());
+
+        {
+            DictationController ctrl(tempDir.path());
+            QCOMPARE(ctrl.pushToTalk(), false); // Default is false (toggle mode)
+            ctrl.setPushToTalk(true);
+            QCOMPARE(ctrl.pushToTalk(), true);
+            QCOMPARE(ctrl.GetPushToTalk(), true);
+        }
+
+        {
+            DictationController restored(tempDir.path());
+            QCOMPARE(restored.pushToTalk(), true);
+            restored.SetPushToTalk(false);
+            QCOMPARE(restored.pushToTalk(), false);
+            QCOMPARE(restored.GetPushToTalk(), false);
+        }
+    }
 };
 
 QTEST_MAIN(TestKDictation)

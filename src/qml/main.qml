@@ -175,6 +175,21 @@ CachyWindow {
                 }
             }
 
+            // Modo de invocación: Push-to-Talk vs Toggle
+            CachyToolbarButton {
+                checkable: true
+                checked: Dictation ? Dictation.pushToTalk : false
+                iconName: (Dictation && Dictation.pushToTalk) ? "microphone-sensitivity-high" : "media-playback-start"
+                tooltipText: (Dictation && Dictation.pushToTalk)
+                    ? CachyI18n.i18n("Modo Push-to-Talk activo (mantén pulsado para hablar)")
+                    : CachyI18n.i18n("Modo Toggle activo (pulsa para alternar dictado)")
+                onToggled: (nextState) => {
+                    if (Dictation) {
+                        Dictation.pushToTalk = nextState;
+                    }
+                }
+            }
+
             // Historial de dictados
             CachyToolbarButton {
                 checkable: true

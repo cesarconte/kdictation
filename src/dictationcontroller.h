@@ -28,6 +28,7 @@ class DictationController : public QObject
     Q_PROPERTY(QString language READ language WRITE setLanguage NOTIFY languageChanged)
     Q_PROPERTY(bool smartFormatting READ smartFormatting WRITE setSmartFormatting NOTIFY smartFormattingChanged)
     Q_PROPERTY(bool directInsertion READ directInsertion WRITE setDirectInsertion NOTIFY directInsertionChanged)
+    Q_PROPERTY(bool pushToTalk READ pushToTalk WRITE setPushToTalk NOTIFY pushToTalkChanged)
     Q_PROPERTY(QString lastTranscript READ lastTranscript NOTIFY lastTranscriptChanged)
     Q_PROPERTY(QString statusMessage READ statusMessage NOTIFY statusMessageChanged)
     Q_PROPERTY(QVariantList history READ history NOTIFY historyChanged)
@@ -47,6 +48,8 @@ public:
     void setSmartFormatting(bool enabled);
     bool directInsertion() const;
     void setDirectInsertion(bool enabled);
+    bool pushToTalk() const;
+    void setPushToTalk(bool enabled);
     QString lastTranscript() const;
     QString statusMessage() const;
     QVariantList history() const;
@@ -69,6 +72,8 @@ public Q_SLOTS:
     void Toggle();
     void StartDictation();
     void StopDictation();
+    void SetPushToTalk(bool enabled);
+    bool GetPushToTalk() const;
     void Show();
     void Hide();
 
@@ -80,6 +85,7 @@ Q_SIGNALS:
     void languageChanged();
     void smartFormattingChanged();
     void directInsertionChanged();
+    void pushToTalkChanged();
     void lastTranscriptChanged();
     void statusMessageChanged();
     void historyChanged();
@@ -107,6 +113,7 @@ private:
     QString m_language = QStringLiteral("es");
     bool m_smartFormatting = false;
     bool m_directInsertion = true;
+    bool m_pushToTalk = false;
     QString m_lastTranscript;
     QString m_statusMessage = QStringLiteral("Listo para dictar (Meta+Alt+D)");
     QVariantList m_history;
