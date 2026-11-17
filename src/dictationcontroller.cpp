@@ -82,10 +82,13 @@ DictationController::DictationController(const QString &storageDir, QObject *par
         Q_EMIT statusMessageChanged();
     });
 
-    // Descubrir modelos Whisper en disco
+    // Descubrir modelos Whisper en disco (sin duplicados)
     const QStringList discovered = WhisperEngine::discoverModels();
     for (const QString &path : discovered) {
-        m_availableWhisperModels.append(QFileInfo(path).fileName());
+        const QString name = QFileInfo(path).fileName();
+        if (!m_availableWhisperModels.contains(name)) {
+            m_availableWhisperModels.append(name);
+        }
     }
 
     // Precargar modelo Whisper en memoria en segundo plano (Warm Model)
@@ -246,7 +249,7 @@ void DictationController::refreshAvailableAiModels()
             QStringList modelNames;
             for (const QJsonValue &val : models) {
                 const QString name = val.toObject().value(QStringLiteral("name")).toString();
-                if (!name.isEmpty()) {
+                if (!name.isEmpty() && !modelNames.contains(name)) {
                     modelNames.append(name);
                 }
             }

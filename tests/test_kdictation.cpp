@@ -271,6 +271,11 @@ private Q_SLOTS:
         QVERIFY(!ctrl.availableWhisperModels().isEmpty());
         QVERIFY(!ctrl.whisperModel().isEmpty());
 
+        // Ensure no duplicates exist in availableWhisperModels
+        const QStringList modelsList = ctrl.availableWhisperModels();
+        const QSet<QString> uniqueModels(modelsList.begin(), modelsList.end());
+        QCOMPARE(modelsList.size(), uniqueModels.size());
+
         if (ctrl.availableWhisperModels().contains(QStringLiteral("ggml-small.bin"))) {
             ctrl.setWhisperModel(QStringLiteral("ggml-small.bin"));
             QCOMPARE(ctrl.whisperModel(), QStringLiteral("ggml-small.bin"));

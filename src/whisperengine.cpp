@@ -96,9 +96,11 @@ QString WhisperEngine::findDefaultModel()
 QStringList WhisperEngine::discoverModels()
 {
     QStringList found;
+    QStringList seenFileNames;
     const QStringList searchDirs = {
-        QDir::homePath() + QStringLiteral("/.local/share/kity/models"),
         QDir::homePath() + QStringLiteral("/.local/share/kdictation/models"),
+        QDir::homePath() + QStringLiteral("/.local/share/kity/models"),
+        QStringLiteral("/usr/share/kdictation/models"),
         QStringLiteral("/usr/share/kity/models"),
         QStringLiteral("/usr/share/whisper-models")
     };
@@ -108,9 +110,9 @@ QStringList WhisperEngine::discoverModels()
         if (dir.exists()) {
             const QStringList files = dir.entryList(QStringList() << QStringLiteral("*.bin"), QDir::Files);
             for (const QString &file : files) {
-                const QString full = dir.absoluteFilePath(file);
-                if (!found.contains(full)) {
-                    found.append(full);
+                if (!seenFileNames.contains(file)) {
+                    seenFileNames.append(file);
+                    found.append(dir.absoluteFilePath(file));
                 }
             }
         }
