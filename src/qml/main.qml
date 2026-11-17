@@ -50,6 +50,24 @@ CachyWindow {
         if (!expandedHistory && currentView === "history") currentView = "dictation";
     }
 
+    onClosing: (close) => {
+        if (Dictation && Dictation.closeToBackground) {
+            close.accepted = false;
+            Dictation.hudVisible = false;
+        }
+    }
+
+    Shortcut {
+        sequence: StandardKey.Quit
+        onActivated: {
+            if (Dictation) {
+                Dictation.quitApplication();
+            } else {
+                Qt.quit();
+            }
+        }
+    }
+
     function formatTime(sec) {
         const m = Math.floor(sec / 60);
         const s = sec % 60;
@@ -549,7 +567,7 @@ CachyWindow {
                                     }
                                 }
 
-                                // 3. Opciones de inserción y modo
+                                // 3. Opciones de inserción, segundo plano y modo
                                 ColumnLayout {
                                     Layout.fillWidth: true
                                     Layout.minimumWidth: 0
@@ -574,9 +592,29 @@ CachyWindow {
                                             if (Dictation) Dictation.pushToTalk = checked;
                                         }
                                     }
+
+                                    QQC2.CheckBox {
+                                        Layout.fillWidth: true
+                                        Layout.minimumWidth: 0
+                                        text: CachyI18n.i18n("Iniciar con el sistema en segundo plano (Modo Demonio)")
+                                        checked: Dictation ? Dictation.autostart : false
+                                        onToggled: {
+                                            if (Dictation) Dictation.autostart = checked;
+                                        }
+                                    }
+
+                                    QQC2.CheckBox {
+                                        Layout.fillWidth: true
+                                        Layout.minimumWidth: 0
+                                        text: CachyI18n.i18n("Permanecer en segundo plano al cerrar la ventana")
+                                        checked: Dictation ? Dictation.closeToBackground : true
+                                        onToggled: {
+                                            if (Dictation) Dictation.closeToBackground = checked;
+                                        }
+                                    }
                                 }
 
-                                // 4. Recordatorio de atajo
+                                // 4. Recordatorio de atajo y botón de salida
                                 RowLayout {
                                     Layout.fillWidth: true
                                     Layout.minimumWidth: 0
@@ -601,6 +639,22 @@ CachyWindow {
                                             font.pixelSize: 10
                                             font.weight: Font.DemiBold
                                             color: CachyTheme.accentColor
+                                        }
+                                    }
+
+                                    Item {
+                                        Layout.fillWidth: true
+                                    }
+
+                                    CachyButton {
+                                        destructive: true
+                                        text: CachyI18n.i18n("Salir")
+                                        onClicked: {
+                                            if (Dictation) {
+                                                Dictation.quitApplication();
+                                            } else {
+                                                Qt.quit();
+                                            }
                                         }
                                     }
                                 }

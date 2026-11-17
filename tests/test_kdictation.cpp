@@ -296,6 +296,26 @@ private Q_SLOTS:
             QVERIFY(result.isEmpty());
         }
     }
+
+    void testCloseToBackgroundAndAutostart()
+    {
+        QTemporaryDir tempDir;
+        QVERIFY(tempDir.isValid());
+
+        {
+            DictationController ctrl(tempDir.path());
+            QCOMPARE(ctrl.closeToBackground(), true);
+            ctrl.setCloseToBackground(false);
+            QCOMPARE(ctrl.closeToBackground(), false);
+        }
+
+        {
+            DictationController restored(tempDir.path());
+            QCOMPARE(restored.closeToBackground(), false);
+            restored.setCloseToBackground(true);
+            QCOMPARE(restored.closeToBackground(), true);
+        }
+    }
 };
 
 QTEST_MAIN(TestKDictation)

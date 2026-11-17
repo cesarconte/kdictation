@@ -34,6 +34,8 @@ class DictationController : public QObject
     Q_PROPERTY(QStringList availableAiModels READ availableAiModels NOTIFY availableAiModelsChanged)
     Q_PROPERTY(bool directInsertion READ directInsertion WRITE setDirectInsertion NOTIFY directInsertionChanged)
     Q_PROPERTY(bool pushToTalk READ pushToTalk WRITE setPushToTalk NOTIFY pushToTalkChanged)
+    Q_PROPERTY(bool autostart READ autostart WRITE setAutostart NOTIFY autostartChanged)
+    Q_PROPERTY(bool closeToBackground READ closeToBackground WRITE setCloseToBackground NOTIFY closeToBackgroundChanged)
     Q_PROPERTY(QString lastTranscript READ lastTranscript NOTIFY lastTranscriptChanged)
     Q_PROPERTY(QString statusMessage READ statusMessage NOTIFY statusMessageChanged)
     Q_PROPERTY(QVariantList history READ history NOTIFY historyChanged)
@@ -63,6 +65,10 @@ public:
     void setDirectInsertion(bool enabled);
     bool pushToTalk() const;
     void setPushToTalk(bool enabled);
+    bool autostart() const;
+    void setAutostart(bool enabled);
+    bool closeToBackground() const;
+    void setCloseToBackground(bool enabled);
     QString lastTranscript() const;
     QString statusMessage() const;
     QVariantList history() const;
@@ -82,6 +88,7 @@ public Q_SLOTS:
     Q_INVOKABLE void clearHistory();
     Q_INVOKABLE void addHistoryEntry(const QString &text, const QString &lang = QStringLiteral("es"));
     Q_INVOKABLE void refreshAvailableAiModels();
+    Q_INVOKABLE void quitApplication();
 
     // D-Bus methods
     void Toggle();
@@ -108,6 +115,8 @@ Q_SIGNALS:
     void availableAiModelsChanged();
     void directInsertionChanged();
     void pushToTalkChanged();
+    void autostartChanged();
+    void closeToBackgroundChanged();
     void lastTranscriptChanged();
     void statusMessageChanged();
     void historyChanged();
@@ -140,6 +149,7 @@ private:
     bool m_smartFormatting = false;
     bool m_directInsertion = true;
     bool m_pushToTalk = false;
+    bool m_closeToBackground = true;
     QString m_lastTranscript;
     QString m_statusMessage = QStringLiteral("Listo para dictar (Meta+Alt+D)");
     QVariantList m_history;

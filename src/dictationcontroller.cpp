@@ -307,6 +307,61 @@ void DictationController::setPushToTalk(bool enabled)
     Q_EMIT pushToTalkChanged();
 }
 
+static QString autostartFilePath()
+{
+    const QString configDir = QStandardPaths::writableLocation(QStandardPaths::ConfigLocation);
+    return configDir + QStringLiteral("/autostart/org.cesar.kdictation.desktop");
+}
+
+bool DictationController::autostart() const
+{
+    return QFileInfo::exists(autostartFilePath());
+}
+
+void DictationController::setAutostart(bool enabled)
+{
+    const QString filePath = autostartFilePath();
+    if (enabled) {
+        const QFileInfo fi(filePath);
+        QDir().mkpath(fi.dir().path());
+        QFile file(filePath);
+        if (file.open(QIODevice::WriteOnly | QIODevice::Truncate | QIODevice::Text)) {
+            file.write("[Desktop Entry]\n"
+                       "Type=Application\n"
+                       "Name=KDictation\n"
+                       "Comment=Universal Voice Dictation Service\n"
+                       "Exec=kdictation --daemon\n"
+                       "Icon=org.cesar.kdictation\n"
+                       "Terminal=false\n"
+                       "StartupNotify=false\n"
+                       "X-KDE-autostart-phase=2\n");
+        }
+    } else {
+        QFile::remove(filePath);
+    }
+    Q_EMIT autostartChanged();
+}
+
+bool DictationController::closeToBackground() const
+{
+    return m_closeToBackground;
+}
+
+void DictationController::setCloseToBackground(bool enabled)
+{
+    if (m_closeToBackground == enabled) {
+        return;
+    }
+    m_closeToBackground = enabled;
+    saveState();
+    Q_EMIT closeToBackgroundChanged();
+}
+
+void DictationController::quitApplication()
+{
+    QGuiApplication::quit();
+}
+
 void DictationController::SetPushToTalk(bool enabled)
 {
     setPushToTalk(enabled);
@@ -720,6 +775,7 @@ void DictationController::loadState()
     m_smartFormatting = (m_aiMode > 0);
     m_directInsertion = root.value(QStringLiteral("directInsertion")).toBool(true);
     m_pushToTalk = root.value(QStringLiteral("pushToTalk")).toBool(false);
+    m_closeToBackground = root.value(QStringLiteral("closeToBackground")).toBool(true);
 
     m_statusMessage = m_pushToTalk
         ? QStringLiteral("Modo Push-to-Talk (mantén Meta+Alt+D)")
@@ -749,6 +805,7 @@ void DictationController::saveState() const
     root.insert(QStringLiteral("aiModel"), m_aiModel);
     root.insert(QStringLiteral("directInsertion"), m_directInsertion);
     root.insert(QStringLiteral("pushToTalk"), m_pushToTalk);
+    root.insert(QStringLiteral("closeToBackground"), m_closeToBackground);
 
     QJsonArray arr;
     for (const QVariant &item : m_history) {
