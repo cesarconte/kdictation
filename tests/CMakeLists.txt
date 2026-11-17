@@ -22,12 +22,10 @@ find_package(CachyOSUITesting REQUIRED)
 
 add_executable(test_layout_audit
     test_layout_audit.cpp
-    ../src/dictationcontroller.cpp
-    ../src/dictationcontroller.h
     ${TEST_QRC}
 )
 
-target_include_directories(test_layout_audit PRIVATE ../src)
+target_include_directories(test_layout_audit PRIVATE ../src ${PIPEWIRE_INCLUDE_DIRS})
 target_link_libraries(test_layout_audit PRIVATE
     kdictation_core
     Qt6::Core

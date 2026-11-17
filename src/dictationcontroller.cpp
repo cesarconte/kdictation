@@ -28,6 +28,7 @@ DictationController::DictationController(const QString &storageDir, QObject *par
     , m_storageDir(storageDir.isEmpty()
                        ? QStandardPaths::writableLocation(QStandardPaths::AppDataLocation)
                        : storageDir)
+    , m_recorder(std::make_unique<PipeWireRecorder>(this))
 {
     QDir().mkpath(m_storageDir);
     loadState();
@@ -38,15 +39,23 @@ DictationController::DictationController(const QString &storageDir, QObject *par
         Q_EMIT recordingSecondsChanged();
     });
 
-    m_levelTimer.setInterval(120);
-    connect(&m_levelTimer, &QTimer::timeout, this, &DictationController::updateLiveLevel);
+    connect(m_recorder.get(), &PipeWireRecorder::audioLevelChanged, this, [this](double level) {
+        if (m_recording) {
+            m_audioLevel = level;
+            Q_EMIT audioLevelChanged();
+        }
+    });
+
+    connect(m_recorder.get(), &PipeWireRecorder::errorOccurred, this, [this](const QString &errMsg) {
+        m_statusMessage = errMsg;
+        Q_EMIT statusMessageChanged();
+    });
 }
 
 DictationController::~DictationController()
 {
-    if (m_recordProcess && m_recordProcess->state() != QProcess::NotRunning) {
-        m_recordProcess->terminate();
-        m_recordProcess->waitForFinished(1000);
+    if (m_recorder && m_recorder->isRecording()) {
+        m_recorder->stopRecording();
     }
     if (m_whisperProcess && m_whisperProcess->state() != QProcess::NotRunning) {
         m_whisperProcess->kill();
@@ -229,33 +238,18 @@ void DictationController::startRecording()
     }
 
     setHudVisible(true);
-    m_currentWavPath = m_storageDir + QStringLiteral("/dictation_capture.wav");
-    QFile::remove(m_currentWavPath);
 
-    m_recordProcess = new QProcess(this);
-    m_recordProcess->setProgram(QStringLiteral("pw-record"));
-    m_recordProcess->setArguments({
-        QStringLiteral("--format=s16"),
-        QStringLiteral("--rate=16000"),
-        QStringLiteral("--channels=1"),
-        m_currentWavPath
-    });
-
-    m_recordProcess->start();
-    if (!m_recordProcess->waitForStarted(2000)) {
-        m_statusMessage = QStringLiteral("Error al iniciar pw-record");
+    if (!m_recorder || !m_recorder->startRecording(16000, 1)) {
+        m_statusMessage = QStringLiteral("Error al iniciar captura con PipeWire nativo");
         Q_EMIT statusMessageChanged();
-        m_recordProcess->deleteLater();
-        m_recordProcess = nullptr;
         return;
     }
 
     m_recording = true;
     m_recordingSeconds = 0;
-    m_audioLevel = 0.08;
-    m_statusMessage = QStringLiteral("Escuchando... habla ahora");
+    m_audioLevel = 0.05;
+    m_statusMessage = QStringLiteral("Escuchando (PipeWire nativo)... habla ahora");
     m_timer.start();
-    m_levelTimer.start();
 
     Q_EMIT recordingChanged();
     Q_EMIT recordingSecondsChanged();
@@ -270,27 +264,22 @@ void DictationController::stopRecording()
     }
 
     m_timer.stop();
-    m_levelTimer.stop();
     m_recording = false;
     m_audioLevel = 0.0;
     Q_EMIT recordingChanged();
     Q_EMIT audioLevelChanged();
 
-    if (m_recordProcess) {
-        if (m_recordProcess->state() != QProcess::NotRunning) {
-            ::kill(static_cast<pid_t>(m_recordProcess->processId()), SIGINT);
-            if (!m_recordProcess->waitForFinished(1500)) {
-                m_recordProcess->terminate();
-                m_recordProcess->waitForFinished(1000);
-            }
-        }
-        m_recordProcess->deleteLater();
-        m_recordProcess = nullptr;
+    const QByteArray pcmData = m_recorder ? m_recorder->stopRecording() : QByteArray();
+    // Requerir al menos 200 ms de audio (16000 muestras * 2 bytes * 0.2s = 6400 bytes)
+    if (pcmData.size() < 6400) {
+        m_statusMessage = QStringLiteral("Audio demasiado corto");
+        Q_EMIT statusMessageChanged();
+        return;
     }
 
-    QFileInfo wavInfo(m_currentWavPath);
-    if (!wavInfo.exists() || wavInfo.size() <= 512) {
-        m_statusMessage = QStringLiteral("Audio demasiado corto");
+    m_currentWavPath = m_storageDir + QStringLiteral("/dictation_capture.wav");
+    if (!PipeWireRecorder::savePcmToWavFile(m_currentWavPath, pcmData, 16000, 1)) {
+        m_statusMessage = QStringLiteral("Error al generar WAV desde PipeWire");
         Q_EMIT statusMessageChanged();
         return;
     }
@@ -421,23 +410,6 @@ void DictationController::saveState() const
     if (file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
         file.write(QJsonDocument(root).toJson(QJsonDocument::Indented));
     }
-}
-
-void DictationController::updateLiveLevel()
-{
-    QFile wavFile(m_currentWavPath);
-    if (!wavFile.open(QIODevice::ReadOnly)) {
-        return;
-    }
-    const qint64 sz = wavFile.size();
-    if (sz <= 44) {
-        return;
-    }
-    const qint64 windowBytes = qMin<qint64>(3840, sz - 44);
-    wavFile.seek(sz - windowBytes);
-    const QByteArray pcmChunk = wavFile.read(windowBytes);
-    m_audioLevel = computeWavRmsLevel(pcmChunk);
-    Q_EMIT audioLevelChanged();
 }
 
 void DictationController::runWhisperTranscription(const QString &wavPath)

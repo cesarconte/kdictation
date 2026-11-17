@@ -1,9 +1,14 @@
 add_library(kdictation_core STATIC
     dictationcontroller.cpp
     dictationcontroller.h
+    pipewirerecorder.cpp
+    pipewirerecorder.h
 )
 
-target_include_directories(kdictation_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(kdictation_core PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${PIPEWIRE_INCLUDE_DIRS}
+)
 
 target_link_libraries(kdictation_core PUBLIC
     Qt6::Core
@@ -13,6 +18,7 @@ target_link_libraries(kdictation_core PUBLIC
     KF6::CoreAddons
     KF6::I18n
     KF6::GlobalAccel
+    ${PIPEWIRE_LIBRARIES}
 )
 
 qt_add_resources(KDICTATION_QRC resources.qrc)

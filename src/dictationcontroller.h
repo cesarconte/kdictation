@@ -5,11 +5,15 @@
 
 #pragma once
 
+#include "pipewirerecorder.h"
+
 #include <QNetworkAccessManager>
 #include <QObject>
 #include <QProcess>
 #include <QTimer>
 #include <QVariantList>
+
+#include <memory>
 
 class DictationController : public QObject
 {
@@ -79,7 +83,6 @@ Q_SIGNALS:
 private:
     void loadState();
     void saveState() const;
-    void updateLiveLevel();
     void runWhisperTranscription(const QString &wavPath);
     void runSmartFormattingPass(const QString &rawTranscript);
     void finalizeTranscript(const QString &finalText);
@@ -87,10 +90,9 @@ private:
     static QString findWhisperModel();
 
     QString m_storageDir;
-    QProcess *m_recordProcess = nullptr;
+    std::unique_ptr<PipeWireRecorder> m_recorder;
     QProcess *m_whisperProcess = nullptr;
     QTimer m_timer;
-    QTimer m_levelTimer;
     QNetworkAccessManager m_nam;
 
     QString m_currentWavPath;

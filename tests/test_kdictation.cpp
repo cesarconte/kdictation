@@ -89,6 +89,49 @@ private Q_SLOTS:
         QQmlComponent component(&engine, QUrl(QStringLiteral("qrc:/org/cesar/kdictation/qml/main.qml")));
         QVERIFY2(!component.isError(), qPrintable(component.errorString()));
     }
+
+    void testSavePcmToWavFileValidHeader()
+    {
+        QTemporaryDir tempDir;
+        QVERIFY(tempDir.isValid());
+
+        const QString wavPath = tempDir.path() + QStringLiteral("/test.wav");
+        QByteArray dummyPcm;
+        // 16000 samples (1 second) of 16-bit mono PCM = 32000 bytes
+        dummyPcm.resize(32000);
+        dummyPcm.fill(0);
+
+        const bool ok = PipeWireRecorder::savePcmToWavFile(wavPath, dummyPcm, 16000, 1);
+        QVERIFY(ok);
+
+        QFile f(wavPath);
+        QVERIFY(f.open(QIODevice::ReadOnly));
+        QCOMPARE(f.size(), 44 + 32000);
+
+        const QByteArray header = f.read(44);
+        QCOMPARE(header.mid(0, 4), QByteArray("RIFF"));
+        QCOMPARE(header.mid(8, 4), QByteArray("WAVE"));
+        QCOMPARE(header.mid(12, 4), QByteArray("fmt "));
+        QCOMPARE(header.mid(36, 4), QByteArray("data"));
+    }
+
+    void testPipeWireRecorderRealCapture()
+    {
+        PipeWireRecorder recorder;
+        QVERIFY(!recorder.isRecording());
+
+        const bool started = recorder.startRecording(16000, 1);
+        QVERIFY(started);
+        QVERIFY(recorder.isRecording());
+
+        // Wait 300 ms to capture real PipeWire buffers
+        QTest::qWait(300);
+
+        const QByteArray pcm = recorder.stopRecording();
+        QVERIFY(!recorder.isRecording());
+        // In 300ms at 16kHz 16-bit mono (32000 bytes/s), we should have received around 9600 bytes
+        QVERIFY(pcm.size() > 0);
+    }
 };
 
 QTEST_MAIN(TestKDictation)
