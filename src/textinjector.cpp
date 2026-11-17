@@ -135,8 +135,14 @@ void TextInjector::copyToClipboard(const QString &text)
 
     // Sincronizar de forma no bloqueante con el portapapeles nativo de Wayland
     static const bool hasWlCopy = !QStandardPaths::findExecutable(QStringLiteral("wl-copy")).isEmpty();
-    if (hasWlCopy) {
-        QProcess::startDetached(QStringLiteral("wl-copy"), {text});
+    if (hasWlCopy && qEnvironmentVariableIsEmpty("QT_TEST_RUNNING")) {
+        QProcess proc;
+        proc.setProgram(QStringLiteral("wl-copy"));
+        proc.setArguments({text});
+        proc.setStandardInputFile(QProcess::nullDevice());
+        proc.setStandardOutputFile(QProcess::nullDevice());
+        proc.setStandardErrorFile(QProcess::nullDevice());
+        proc.startDetached();
     }
 }
 

@@ -41,6 +41,15 @@ DictationController::DictationController(const QString &storageDir, QObject *par
         Q_EMIT recordingSecondsChanged();
     });
 
+    m_ephemeralTimer.setSingleShot(true);
+    connect(&m_ephemeralTimer, &QTimer::timeout, this, [this]() {
+        if (m_ephemeralMode && !m_recording && !m_transcribing && !m_hudVisible) {
+            qInfo() << "KDictation: Inactividad en modo efímero alcanzada (" << m_ephemeralTimeoutSeconds
+                    << "s). Liberando recursos y saliendo.";
+            QCoreApplication::quit();
+        }
+    });
+
     connect(m_recorder.get(), &PipeWireRecorder::audioLevelChanged, this, [this](double level) {
         if (m_recording) {
             m_audioLevel = level;
@@ -401,7 +410,35 @@ void DictationController::setHudVisible(bool visible)
         return;
     }
     m_hudVisible = visible;
+    if (m_hudVisible) {
+        m_ephemeralTimer.stop();
+    } else if (m_ephemeralMode) {
+        resetEphemeralTimer();
+    }
     Q_EMIT hudVisibleChanged();
+}
+
+void DictationController::setEphemeralMode(bool enabled, int timeoutSeconds)
+{
+    m_ephemeralMode = enabled;
+    m_ephemeralTimeoutSeconds = timeoutSeconds > 0 ? timeoutSeconds : 60;
+    if (m_ephemeralMode && !m_hudVisible) {
+        resetEphemeralTimer();
+    } else {
+        m_ephemeralTimer.stop();
+    }
+}
+
+bool DictationController::isEphemeralMode() const
+{
+    return m_ephemeralMode;
+}
+
+void DictationController::resetEphemeralTimer()
+{
+    if (m_ephemeralMode && !m_hudVisible) {
+        m_ephemeralTimer.start(m_ephemeralTimeoutSeconds * 1000);
+    }
 }
 
 QString DictationController::cleanWhisperOutput(const QString &raw)
@@ -711,16 +748,19 @@ void DictationController::addHistoryEntry(const QString &text, const QString &la
 
 void DictationController::Toggle()
 {
+    resetEphemeralTimer();
     toggleRecording();
 }
 
 void DictationController::StartDictation()
 {
+    resetEphemeralTimer();
     startRecording();
 }
 
 void DictationController::StopDictation()
 {
+    resetEphemeralTimer();
     stopRecording();
 }
 
@@ -739,6 +779,7 @@ void DictationController::Hide()
 
 QString DictationController::TranscribePcm(const QByteArray &pcmData, const QString &lang)
 {
+    resetEphemeralTimer();
     if (!m_whisperEngine || !m_whisperEngine->isModelLoaded() || pcmData.isEmpty()) {
         return QString();
     }
@@ -749,6 +790,32 @@ QString DictationController::TranscribePcm(const QByteArray &pcmData, const QStr
     cleaned = applyVoiceCommands(cleaned);
     cleaned = removeFillerWords(cleaned, language);
     return cleaned;
+}
+
+QString DictationController::TranscribeAndInjectPcm(const QByteArray &pcmData, const QString &lang)
+{
+    resetEphemeralTimer();
+    const QString cleaned = TranscribePcm(pcmData, lang);
+    if (cleaned.isEmpty()) {
+        return QString();
+    }
+
+    if (m_aiMode > 0) {
+        runSmartFormattingPass(cleaned);
+    } else {
+        finalizeTranscript(cleaned);
+    }
+    return cleaned;
+}
+
+void DictationController::InjectText(const QString &text)
+{
+    resetEphemeralTimer();
+    const QString trimmed = text.trimmed();
+    if (trimmed.isEmpty()) {
+        return;
+    }
+    finalizeTranscript(trimmed);
 }
 
 bool DictationController::IsEngineReady() const

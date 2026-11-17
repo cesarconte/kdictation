@@ -321,6 +321,41 @@ private Q_SLOTS:
             QCOMPARE(restored.closeToBackground(), true);
         }
     }
+
+    void testInjectTextAndEphemeralMode()
+    {
+        QTemporaryDir tempDir;
+        QVERIFY(tempDir.isValid());
+
+        DictationController ctrl(tempDir.path());
+        QCOMPARE(ctrl.isEphemeralMode(), false);
+        ctrl.setEphemeralMode(true, 10);
+        QCOMPARE(ctrl.isEphemeralMode(), true);
+
+        // Injecting text updates history and last transcript
+        ctrl.InjectText(QStringLiteral("Texto de prueba desde micrófono remoto"));
+        QCOMPARE(ctrl.lastTranscript(), QStringLiteral("Texto de prueba desde micrófono remoto"));
+        QVERIFY(!ctrl.history().isEmpty());
+    }
+
+    void testTranscribeAndInjectPcm()
+    {
+        QTemporaryDir tempDir;
+        QVERIFY(tempDir.isValid());
+
+        DictationController ctrl(tempDir.path());
+        ctrl.setEphemeralMode(true, 60);
+
+        for (int i = 0; i < 20 && !ctrl.IsEngineReady(); ++i) {
+            QTest::qWait(50);
+        }
+
+        if (ctrl.IsEngineReady()) {
+            QByteArray silencePcm(32000, 0);
+            const QString result = ctrl.TranscribeAndInjectPcm(silencePcm, QStringLiteral("es"));
+            QVERIFY(result.isEmpty());
+        }
+    }
 };
 
 QTEST_MAIN(TestKDictation)

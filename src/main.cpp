@@ -48,6 +48,14 @@ int main(int argc, char *argv[])
     QCommandLineOption daemonOpt(QStringLiteral("daemon"),
                                  QStringLiteral("Run in background as a resident D-Bus voice service without showing the HUD"));
     parser.addOption(daemonOpt);
+    QCommandLineOption ephemeralOpt(QStringLiteral("ephemeral"),
+                                    QStringLiteral("Run ephemerally: exit automatically after inactivity timeout"));
+    parser.addOption(ephemeralOpt);
+    QCommandLineOption idleTimeoutOpt(QStringLiteral("idle-timeout"),
+                                      QStringLiteral("Timeout in seconds of inactivity before exiting in ephemeral mode (default: 60)"),
+                                      QStringLiteral("seconds"),
+                                      QStringLiteral("60"));
+    parser.addOption(idleTimeoutOpt);
     QCommandLineOption screenshotOpt(QStringLiteral("screenshot"),
                                      QStringLiteral("Capture window screenshot and exit"),
                                      QStringLiteral("path"));
@@ -130,6 +138,11 @@ int main(int argc, char *argv[])
         controller.setHudVisible(false);
     } else if (parser.isSet(toggleOpt)) {
         controller.startRecording();
+    }
+
+    if (parser.isSet(ephemeralOpt) || (parser.isSet(idleTimeoutOpt) && parser.isSet(daemonOpt))) {
+        const int timeoutSec = parser.value(idleTimeoutOpt).toInt();
+        controller.setEphemeralMode(true, timeoutSec > 0 ? timeoutSec : 60);
     }
 
     return app.exec();

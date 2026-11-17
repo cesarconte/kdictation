@@ -99,7 +99,13 @@ public Q_SLOTS:
     void Show();
     void Hide();
     QString TranscribePcm(const QByteArray &pcmData, const QString &lang = QStringLiteral("es"));
+    QString TranscribeAndInjectPcm(const QByteArray &pcmData, const QString &lang = QStringLiteral("es"));
+    void InjectText(const QString &text);
     bool IsEngineReady() const;
+
+    void setEphemeralMode(bool enabled, int timeoutSeconds = 60);
+    bool isEphemeralMode() const;
+    void resetEphemeralTimer();
 
 Q_SIGNALS:
     void recordingChanged();
@@ -134,6 +140,9 @@ private:
     std::unique_ptr<WhisperEngine> m_whisperEngine;
     std::unique_ptr<TextInjector> m_injector;
     QTimer m_timer;
+    QTimer m_ephemeralTimer;
+    bool m_ephemeralMode = false;
+    int m_ephemeralTimeoutSeconds = 60;
     QNetworkAccessManager m_nam;
 
     bool m_recording = false;
