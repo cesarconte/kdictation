@@ -43,7 +43,12 @@ CachyWindow {
     cornerRadius: CachyTheme.radiusWindow
     contentPadded: true                // margen perimetral de 18 px
 
-    property bool expandedHistory: false
+    property string currentView: "dictation" // "dictation" | "history" | "settings"
+    property bool expandedHistory: currentView === "history"
+    onExpandedHistoryChanged: {
+        if (expandedHistory && currentView !== "history") currentView = "history";
+        if (!expandedHistory && currentView === "history") currentView = "dictation";
+    }
 
     function formatTime(sec) {
         const m = Math.floor(sec / 60);
@@ -201,10 +206,19 @@ CachyWindow {
             // Historial de dictados
             CachyToolbarButton {
                 checkable: true
-                checked: root.expandedHistory
+                checked: root.currentView === "history"
                 iconName: "view-history-symbolic"
                 tooltipText: CachyI18n.i18n("Mostrar el historial de dictados")
-                onToggled: (nextState) => root.expandedHistory = nextState
+                onToggled: (nextState) => root.currentView = nextState ? "history" : "dictation"
+            }
+
+            // Ajustes y Configuración
+            CachyToolbarButton {
+                checkable: true
+                checked: root.currentView === "settings"
+                iconName: "settings-configure"
+                tooltipText: CachyI18n.i18n("Ajustes y configuración")
+                onToggled: (nextState) => root.currentView = nextState ? "settings" : "dictation"
             }
         }
     ]
@@ -281,7 +295,7 @@ CachyWindow {
                     RowLayout {
                         anchors.fill: parent
                         spacing: 8
-                        visible: !root.expandedHistory
+                        visible: root.currentView === "dictation"
 
                         Text {
                             Layout.fillWidth: true
@@ -315,7 +329,7 @@ CachyWindow {
                     ColumnLayout {
                         anchors.fill: parent
                         spacing: 6
-                        visible: root.expandedHistory
+                        visible: root.currentView === "history"
 
                         RowLayout {
                             Layout.fillWidth: true
@@ -411,6 +425,184 @@ CachyWindow {
                                     font.pixelSize: 10
                                     color: CachyTheme.textMuted
                                     elide: Text.ElideRight
+                                }
+                            }
+                        }
+                    }
+
+                    // --- Ajustes y Configuración ---
+                    ColumnLayout {
+                        anchors.fill: parent
+                        spacing: 6
+                        visible: root.currentView === "settings"
+
+                        RowLayout {
+                            Layout.fillWidth: true
+                            Layout.minimumWidth: 0
+                            spacing: 6
+
+                            Text {
+                                Layout.fillWidth: true
+                                Layout.minimumWidth: 0
+                                text: CachyI18n.i18n("Ajustes de KDictation")
+                                font.pixelSize: 11
+                                font.weight: Font.DemiBold
+                                color: CachyTheme.textMuted
+                                elide: Text.ElideRight
+                            }
+
+                            CachyToolbarButton {
+                                iconName: "window-close"
+                                tooltipText: CachyI18n.i18n("Cerrar ajustes")
+                                onClicked: root.currentView = "dictation"
+                            }
+                        }
+
+                        Flickable {
+                            Layout.fillWidth: true
+                            Layout.fillHeight: true
+                            Layout.minimumWidth: 0
+                            contentWidth: width
+                            contentHeight: settingsCol.implicitHeight
+                            clip: true
+
+                            ColumnLayout {
+                                id: settingsCol
+                                width: parent.width
+                                spacing: 8
+
+                                // 1. Motor Whisper
+                                ColumnLayout {
+                                    Layout.fillWidth: true
+                                    Layout.minimumWidth: 0
+                                    spacing: 2
+
+                                    Text {
+                                        Layout.fillWidth: true
+                                        Layout.minimumWidth: 0
+                                        text: CachyI18n.i18n("Modelo Whisper local")
+                                        font.pixelSize: 11
+                                        font.weight: Font.DemiBold
+                                        color: CachyTheme.textPrimary
+                                        elide: Text.ElideRight
+                                    }
+
+                                    RowLayout {
+                                        Layout.fillWidth: true
+                                        Layout.minimumWidth: 0
+                                        spacing: 6
+
+                                        QQC2.ComboBox {
+                                            id: whisperCombo
+                                            Layout.fillWidth: true
+                                            Layout.minimumWidth: 0
+                                            model: Dictation ? Dictation.availableWhisperModels : []
+                                            currentIndex: {
+                                                if (!Dictation) return -1;
+                                                return model.indexOf(Dictation.whisperModel);
+                                            }
+                                            onActivated: (index) => {
+                                                if (Dictation) {
+                                                    Dictation.whisperModel = model[index];
+                                                }
+                                            }
+                                        }
+
+                                        Text {
+                                            text: CachyI18n.i18n("En RAM")
+                                            font.pixelSize: 10
+                                            color: "#34C759"
+                                        }
+                                    }
+                                }
+
+                                // 2. Refinamiento IA (Ollama)
+                                ColumnLayout {
+                                    Layout.fillWidth: true
+                                    Layout.minimumWidth: 0
+                                    spacing: 2
+
+                                    Text {
+                                        Layout.fillWidth: true
+                                        Layout.minimumWidth: 0
+                                        text: CachyI18n.i18n("Modelo IA local (Ollama)")
+                                        font.pixelSize: 11
+                                        font.weight: Font.DemiBold
+                                        color: CachyTheme.textPrimary
+                                        elide: Text.ElideRight
+                                    }
+
+                                    QQC2.ComboBox {
+                                        id: aiCombo
+                                        Layout.fillWidth: true
+                                        Layout.minimumWidth: 0
+                                        model: Dictation ? Dictation.availableAiModels : []
+                                        currentIndex: {
+                                            if (!Dictation) return -1;
+                                            return model.indexOf(Dictation.aiModel);
+                                        }
+                                        onActivated: (index) => {
+                                            if (Dictation) {
+                                                Dictation.aiModel = model[index];
+                                            }
+                                        }
+                                    }
+                                }
+
+                                // 3. Opciones de inserción y modo
+                                ColumnLayout {
+                                    Layout.fillWidth: true
+                                    Layout.minimumWidth: 0
+                                    spacing: 2
+
+                                    QQC2.CheckBox {
+                                        Layout.fillWidth: true
+                                        Layout.minimumWidth: 0
+                                        text: CachyI18n.i18n("Inserción directa en ventana activa")
+                                        checked: Dictation ? Dictation.directInsertion : true
+                                        onToggled: {
+                                            if (Dictation) Dictation.directInsertion = checked;
+                                        }
+                                    }
+
+                                    QQC2.CheckBox {
+                                        Layout.fillWidth: true
+                                        Layout.minimumWidth: 0
+                                        text: CachyI18n.i18n("Modo Push-to-Talk (mantener pulsado)")
+                                        checked: Dictation ? Dictation.pushToTalk : false
+                                        onToggled: {
+                                            if (Dictation) Dictation.pushToTalk = checked;
+                                        }
+                                    }
+                                }
+
+                                // 4. Recordatorio de atajo
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    Layout.minimumWidth: 0
+                                    spacing: 6
+
+                                    Text {
+                                        text: CachyI18n.i18n("Atajo:")
+                                        font.pixelSize: 10
+                                        color: CachyTheme.textMuted
+                                    }
+
+                                    Rectangle {
+                                        radius: 4
+                                        color: CachyTheme.withAlpha(CachyTheme.textPrimary, 0.08)
+                                        implicitWidth: shortcutLabel.implicitWidth + 12
+                                        implicitHeight: 20
+
+                                        Text {
+                                            id: shortcutLabel
+                                            anchors.centerIn: parent
+                                            text: "Meta + Alt + D"
+                                            font.pixelSize: 10
+                                            font.weight: Font.DemiBold
+                                            color: CachyTheme.accentColor
+                                        }
+                                    }
                                 }
                             }
                         }

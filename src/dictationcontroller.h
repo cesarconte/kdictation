@@ -26,6 +26,8 @@ class DictationController : public QObject
     Q_PROPERTY(int recordingSeconds READ recordingSeconds NOTIFY recordingSecondsChanged)
     Q_PROPERTY(double audioLevel READ audioLevel NOTIFY audioLevelChanged)
     Q_PROPERTY(QString language READ language WRITE setLanguage NOTIFY languageChanged)
+    Q_PROPERTY(QString whisperModel READ whisperModel WRITE setWhisperModel NOTIFY whisperModelChanged)
+    Q_PROPERTY(QStringList availableWhisperModels READ availableWhisperModels NOTIFY availableWhisperModelsChanged)
     Q_PROPERTY(bool smartFormatting READ smartFormatting WRITE setSmartFormatting NOTIFY smartFormattingChanged)
     Q_PROPERTY(int aiMode READ aiMode WRITE setAiMode NOTIFY aiModeChanged)
     Q_PROPERTY(QString aiModel READ aiModel WRITE setAiModel NOTIFY aiModelChanged)
@@ -47,6 +49,9 @@ public:
     double audioLevel() const;
     QString language() const;
     void setLanguage(const QString &lang);
+    QString whisperModel() const;
+    void setWhisperModel(const QString &modelName);
+    QStringList availableWhisperModels() const;
     bool smartFormatting() const;
     void setSmartFormatting(bool enabled);
     int aiMode() const;
@@ -93,6 +98,8 @@ Q_SIGNALS:
     void recordingSecondsChanged();
     void audioLevelChanged();
     void languageChanged();
+    void whisperModelChanged();
+    void availableWhisperModelsChanged();
     void smartFormattingChanged();
     void aiModeChanged();
     void aiModelChanged();
@@ -124,6 +131,8 @@ private:
     int m_recordingSeconds = 0;
     double m_audioLevel = 0.0;
     QString m_language = QStringLiteral("es");
+    QString m_whisperModel;
+    QStringList m_availableWhisperModels;
     int m_aiMode = 0; // 0: Direct (Desactivado), 1: Cleaned (Puliendo), 2: Structured (Profesional)
     QString m_aiModel = QStringLiteral("llama3.2:3b");
     QStringList m_availableAiModels;

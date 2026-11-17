@@ -85,10 +85,31 @@ DictationController::DictationController(const QString &storageDir, QObject *par
         Q_EMIT statusMessageChanged();
     });
 
+    // Descubrir modelos Whisper en disco
+    const QStringList discovered = WhisperEngine::discoverModels();
+    for (const QString &path : discovered) {
+        m_availableWhisperModels.append(QFileInfo(path).fileName());
+    }
+
     // Precargar modelo Whisper en memoria en segundo plano (Warm Model)
-    const QString defaultModel = WhisperEngine::findDefaultModel();
-    if (!defaultModel.isEmpty()) {
-        m_whisperEngine->loadModelAsync(defaultModel);
+    QString modelPathToLoad;
+    if (!m_whisperModel.isEmpty()) {
+        for (const QString &path : discovered) {
+            if (QFileInfo(path).fileName() == m_whisperModel) {
+                modelPathToLoad = path;
+                break;
+            }
+        }
+    }
+    if (modelPathToLoad.isEmpty()) {
+        modelPathToLoad = WhisperEngine::findDefaultModel();
+        if (!modelPathToLoad.isEmpty()) {
+            m_whisperModel = QFileInfo(modelPathToLoad).fileName();
+        }
+    }
+
+    if (!modelPathToLoad.isEmpty()) {
+        m_whisperEngine->loadModelAsync(modelPathToLoad);
     }
 }
 
@@ -133,6 +154,34 @@ void DictationController::setLanguage(const QString &lang)
     m_language = trimmed;
     saveState();
     Q_EMIT languageChanged();
+}
+
+QString DictationController::whisperModel() const
+{
+    return m_whisperModel;
+}
+
+void DictationController::setWhisperModel(const QString &modelName)
+{
+    const QString trimmed = modelName.trimmed();
+    if (m_whisperModel == trimmed || trimmed.isEmpty()) {
+        return;
+    }
+    const QStringList discovered = WhisperEngine::discoverModels();
+    for (const QString &path : discovered) {
+        if (QFileInfo(path).fileName() == trimmed) {
+            m_whisperModel = trimmed;
+            m_whisperEngine->loadModelAsync(path);
+            saveState();
+            Q_EMIT whisperModelChanged();
+            break;
+        }
+    }
+}
+
+QStringList DictationController::availableWhisperModels() const
+{
+    return m_availableWhisperModels;
 }
 
 bool DictationController::smartFormatting() const
@@ -338,17 +387,55 @@ QString DictationController::applyVoiceCommands(const QString &text)
     };
 
     static const QVector<Replacement> rules = {
+        // Párrafos y saltos
         {QRegularExpression(QStringLiteral(R"(\s*\bpunto y aparte\b\s*)"), QRegularExpression::CaseInsensitiveOption), QStringLiteral(".\n\n")},
+        {QRegularExpression(QStringLiteral(R"(\s*\bpunto y seguido\b\s*)"), QRegularExpression::CaseInsensitiveOption), QStringLiteral(". ")},
         {QRegularExpression(QStringLiteral(R"(\s*\bnuevo párrafo\b\s*)"), QRegularExpression::CaseInsensitiveOption), QStringLiteral("\n\n")},
         {QRegularExpression(QStringLiteral(R"(\s*\bnueva línea\b\s*)"), QRegularExpression::CaseInsensitiveOption), QStringLiteral("\n")},
+        {QRegularExpression(QStringLiteral(R"(\s*\bsalto de línea\b\s*)"), QRegularExpression::CaseInsensitiveOption), QStringLiteral("\n")},
+
+        // Puntuación
+        {QRegularExpression(QStringLiteral(R"(\s*\bpuntos suspensivos\b\s*)"), QRegularExpression::CaseInsensitiveOption), QStringLiteral("... ")},
         {QRegularExpression(QStringLiteral(R"(\s*\bpunto y coma\b\s*)"), QRegularExpression::CaseInsensitiveOption), QStringLiteral("; ")},
         {QRegularExpression(QStringLiteral(R"(\s*\bdos puntos\b\s*)"), QRegularExpression::CaseInsensitiveOption), QStringLiteral(": ")},
-        {QRegularExpression(QStringLiteral(R"(\s*\bsigno de interrogación\b\s*)"), QRegularExpression::CaseInsensitiveOption), QStringLiteral("? ")},
-        {QRegularExpression(QStringLiteral(R"(\s*\bsigno de exclamación\b\s*)"), QRegularExpression::CaseInsensitiveOption), QStringLiteral("! ")},
-        {QRegularExpression(QStringLiteral(R"(\s*\babrir interrogación\b\s*)"), QRegularExpression::CaseInsensitiveOption), QStringLiteral(" ¿")},
-        {QRegularExpression(QStringLiteral(R"(\s*\bcerrar interrogación\b\s*)"), QRegularExpression::CaseInsensitiveOption), QStringLiteral("? ")},
+
+        // Interrogación y Exclamación
+        {QRegularExpression(QStringLiteral(R"(\s*\b(?:abrir|abre)\s+(?:signo de\s+)?interrogación\b\s*)"), QRegularExpression::CaseInsensitiveOption), QStringLiteral(" ¿")},
+        {QRegularExpression(QStringLiteral(R"(\s*\b(?:cerrar|cierra|signo de)\s+interrogación\b\s*)"), QRegularExpression::CaseInsensitiveOption), QStringLiteral("? ")},
+        {QRegularExpression(QStringLiteral(R"(\s*\b(?:abrir|abre)\s+(?:signo de\s+)?(?:exclamación|admiración)\b\s*)"), QRegularExpression::CaseInsensitiveOption), QStringLiteral(" ¡")},
+        {QRegularExpression(QStringLiteral(R"(\s*\b(?:cerrar|cierra|signo de)\s+(?:exclamación|admiración)\b\s*)"), QRegularExpression::CaseInsensitiveOption), QStringLiteral("! ")},
+
+        // Comillas, Paréntesis y Corchetes
+        {QRegularExpression(QStringLiteral(R"(\s*\b(?:abrir|abre)\s+comillas\b\s*)"), QRegularExpression::CaseInsensitiveOption), QStringLiteral(" \"")},
+        {QRegularExpression(QStringLiteral(R"(\s*\b(?:cerrar|cierra)\s+comillas\b\s*)"), QRegularExpression::CaseInsensitiveOption), QStringLiteral("\" ")},
+        {QRegularExpression(QStringLiteral(R"(\s*\b(?:abrir|abre)\s+paréntesis\b\s*)"), QRegularExpression::CaseInsensitiveOption), QStringLiteral(" (")},
+        {QRegularExpression(QStringLiteral(R"(\s*\b(?:cerrar|cierra)\s+paréntesis\b\s*)"), QRegularExpression::CaseInsensitiveOption), QStringLiteral(") ")},
+        {QRegularExpression(QStringLiteral(R"(\s*\b(?:abrir|abre)\s+corchetes\b\s*)"), QRegularExpression::CaseInsensitiveOption), QStringLiteral(" [")},
+        {QRegularExpression(QStringLiteral(R"(\s*\b(?:cerrar|cierra)\s+corchetes\b\s*)"), QRegularExpression::CaseInsensitiveOption), QStringLiteral("] ")},
+
+        // Símbolos y listas
+        {QRegularExpression(QStringLiteral(R"(\s*\barroba\b\s*)"), QRegularExpression::CaseInsensitiveOption), QStringLiteral("@")},
+        {QRegularExpression(QStringLiteral(R"(\s*\bguio?n\s+medio\b\s*)"), QRegularExpression::CaseInsensitiveOption), QStringLiteral(" - ")},
+        {QRegularExpression(QStringLiteral(R"(\s*\bguio?n\s+bajo\b\s*)"), QRegularExpression::CaseInsensitiveOption), QStringLiteral("_")},
+        {QRegularExpression(QStringLiteral(R"(\s*\bbarra\s+(?:inclinada|diagonal)\b\s*)"), QRegularExpression::CaseInsensitiveOption), QStringLiteral("/")},
+        {QRegularExpression(QStringLiteral(R"(\s*\basterisco\b\s*)"), QRegularExpression::CaseInsensitiveOption), QStringLiteral("*")},
+        {QRegularExpression(QStringLiteral(R"(\s*\b(?:por ciento|porcentaje)\b\s*)"), QRegularExpression::CaseInsensitiveOption), QStringLiteral("%")},
+        {QRegularExpression(QStringLiteral(R"(\s*\b(?:nueva\s+)?viñeta\b\s*)"), QRegularExpression::CaseInsensitiveOption), QStringLiteral("\n• ")},
+
+        // Coma y Punto final
         {QRegularExpression(QStringLiteral(R"(\s*\bcoma\b\s*)"), QRegularExpression::CaseInsensitiveOption), QStringLiteral(", ")},
         {QRegularExpression(QStringLiteral(R"(\s*\bpunto final\b\s*)"), QRegularExpression::CaseInsensitiveOption), QStringLiteral(".")},
+
+        // English commands
+        {QRegularExpression(QStringLiteral(R"(\s*\bnew paragraph\b\s*)"), QRegularExpression::CaseInsensitiveOption), QStringLiteral("\n\n")},
+        {QRegularExpression(QStringLiteral(R"(\s*\bnew line\b\s*)"), QRegularExpression::CaseInsensitiveOption), QStringLiteral("\n")},
+        {QRegularExpression(QStringLiteral(R"(\s*\bfull stop\b\s*)"), QRegularExpression::CaseInsensitiveOption), QStringLiteral(". ")},
+        {QRegularExpression(QStringLiteral(R"(\s*\bperiod\b\s*)"), QRegularExpression::CaseInsensitiveOption), QStringLiteral(". ")},
+        {QRegularExpression(QStringLiteral(R"(\s*\bsemicolon\b\s*)"), QRegularExpression::CaseInsensitiveOption), QStringLiteral("; ")},
+        {QRegularExpression(QStringLiteral(R"(\s*\bcolon\b\s*)"), QRegularExpression::CaseInsensitiveOption), QStringLiteral(": ")},
+        {QRegularExpression(QStringLiteral(R"(\s*\bquestion mark\b\s*)"), QRegularExpression::CaseInsensitiveOption), QStringLiteral("? ")},
+        {QRegularExpression(QStringLiteral(R"(\s*\bexclamation mark\b\s*)"), QRegularExpression::CaseInsensitiveOption), QStringLiteral("! ")},
+        {QRegularExpression(QStringLiteral(R"(\s*\bbullet point\b\s*)"), QRegularExpression::CaseInsensitiveOption), QStringLiteral("\n• ")},
     };
 
     for (const auto &rule : rules) {
@@ -360,6 +447,18 @@ QString DictationController::applyVoiceCommands(const QString &text)
     out.replace(multiSpaceRe, QStringLiteral(" "));
     static const QRegularExpression spaceBeforePunctRe(QStringLiteral(R"( +([,.;:?!]))"));
     out.replace(spaceBeforePunctRe, QStringLiteral("\\1"));
+
+    // Autocapitalize after sentence terminators (., ?, !, \n), lists, and opening marks
+    static const QRegularExpression autoCapRe(
+        QStringLiteral(R"((?:^|[.!?\n•¿¡]\s*)[¿¡"'«\s]*([a-záéíóúüñ]))"));
+    auto matchIt = autoCapRe.globalMatch(out);
+    while (matchIt.hasNext()) {
+        auto match = matchIt.next();
+        int charPos = match.capturedStart(1);
+        if (charPos >= 0 && charPos < out.length()) {
+            out[charPos] = out[charPos].toUpper();
+        }
+    }
 
     return out.trimmed();
 }
@@ -597,6 +696,7 @@ void DictationController::loadState()
 
     const QJsonObject root = doc.object();
     m_language = root.value(QStringLiteral("language")).toString(QStringLiteral("es"));
+    m_whisperModel = root.value(QStringLiteral("whisperModel")).toString();
     m_aiMode = root.contains(QStringLiteral("aiMode"))
         ? root.value(QStringLiteral("aiMode")).toInt(0)
         : (root.value(QStringLiteral("smartFormatting")).toBool(false) ? 1 : 0);
@@ -627,6 +727,7 @@ void DictationController::saveState() const
 {
     QJsonObject root;
     root.insert(QStringLiteral("language"), m_language);
+    root.insert(QStringLiteral("whisperModel"), m_whisperModel);
     root.insert(QStringLiteral("smartFormatting"), m_smartFormatting);
     root.insert(QStringLiteral("aiMode"), m_aiMode);
     root.insert(QStringLiteral("aiModel"), m_aiModel);

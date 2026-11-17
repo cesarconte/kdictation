@@ -93,6 +93,31 @@ QString WhisperEngine::findDefaultModel()
     return QString();
 }
 
+QStringList WhisperEngine::discoverModels()
+{
+    QStringList found;
+    const QStringList searchDirs = {
+        QDir::homePath() + QStringLiteral("/.local/share/kity/models"),
+        QDir::homePath() + QStringLiteral("/.local/share/kdictation/models"),
+        QStringLiteral("/usr/share/kity/models"),
+        QStringLiteral("/usr/share/whisper-models")
+    };
+
+    for (const QString &dirPath : searchDirs) {
+        QDir dir(dirPath);
+        if (dir.exists()) {
+            const QStringList files = dir.entryList(QStringList() << QStringLiteral("*.bin"), QDir::Files);
+            for (const QString &file : files) {
+                const QString full = dir.absoluteFilePath(file);
+                if (!found.contains(full)) {
+                    found.append(full);
+                }
+            }
+        }
+    }
+    return found;
+}
+
 bool WhisperEngine::loadModel(const QString &modelPath)
 {
     if (modelPath.trimmed().isEmpty() || !QFileInfo::exists(modelPath)) {

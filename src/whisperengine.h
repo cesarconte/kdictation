@@ -33,6 +33,7 @@ public:
     QString transcribeSync(const QByteArray &pcmS16Data, const QString &language = QStringLiteral("es"));
 
     static QString findDefaultModel();
+    static QStringList discoverModels();
     static std::vector<float> pcmS16ToFloat(const QByteArray &pcmS16Data);
 
 Q_SIGNALS:

@@ -35,6 +35,11 @@ private Q_SLOTS:
         const QString multiline = QStringLiteral("Primera línea nueva línea Segunda línea punto final");
         QCOMPARE(DictationController::applyVoiceCommands(multiline),
                  QStringLiteral("Primera línea\nSegunda línea."));
+
+        // Comandos enriquecidos: comillas, interrogación, arroba y viñetas
+        const QString enriched = QStringLiteral("abrir comillas superwhisper cerrar comillas abrir interrogación funciona cerrar interrogación contacto arroba test nueva viñeta elemento uno punto final");
+        const QString expectedEnriched = QStringLiteral("\"Superwhisper\" ¿Funciona? Contacto@test\n• Elemento uno.");
+        QCOMPARE(DictationController::applyVoiceCommands(enriched), expectedEnriched);
     }
 
     void testComputeWavRmsLevel()
@@ -251,6 +256,24 @@ private Q_SLOTS:
             restored.setSmartFormatting(false);
             QCOMPARE(restored.aiMode(), 0);
             QCOMPARE(restored.smartFormatting(), false);
+        }
+    }
+
+    void testWhisperModelDiscoveryAndSelection()
+    {
+        QTemporaryDir tempDir;
+        QVERIFY(tempDir.isValid());
+
+        const QStringList models = WhisperEngine::discoverModels();
+        QVERIFY(!models.isEmpty());
+
+        DictationController ctrl(tempDir.path());
+        QVERIFY(!ctrl.availableWhisperModels().isEmpty());
+        QVERIFY(!ctrl.whisperModel().isEmpty());
+
+        if (ctrl.availableWhisperModels().contains(QStringLiteral("ggml-small.bin"))) {
+            ctrl.setWhisperModel(QStringLiteral("ggml-small.bin"));
+            QCOMPARE(ctrl.whisperModel(), QStringLiteral("ggml-small.bin"));
         }
     }
 };
