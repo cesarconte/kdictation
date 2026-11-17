@@ -210,6 +210,49 @@ private Q_SLOTS:
             QCOMPARE(restored.GetPushToTalk(), false);
         }
     }
+
+    void testRemoveFillerWords()
+    {
+        // Prueba de muletillas y repetición en español
+        const QString spanishInput = QStringLiteral("bueno pues eh vamos vamos a probar este sistema de dictado");
+        const QString expectedSpanish = QStringLiteral("Vamos a probar sistema de dictado");
+        QCOMPARE(DictationController::removeFillerWords(spanishInput, QStringLiteral("es")), expectedSpanish);
+
+        // Prueba en inglés
+        const QString englishInput = QStringLiteral("hello uh this is is like a test");
+        const QString expectedEnglish = QStringLiteral("Hello this is a test");
+        QCOMPARE(DictationController::removeFillerWords(englishInput, QStringLiteral("en")), expectedEnglish);
+    }
+
+    void testAiModeAndModelPersistence()
+    {
+        QTemporaryDir tempDir;
+        QVERIFY(tempDir.isValid());
+
+        {
+            DictationController ctrl(tempDir.path());
+            QCOMPARE(ctrl.aiMode(), 0);
+            QCOMPARE(ctrl.smartFormatting(), false);
+
+            ctrl.setAiMode(1);
+            QCOMPARE(ctrl.aiMode(), 1);
+            QCOMPARE(ctrl.smartFormatting(), true);
+
+            ctrl.setAiModel(QStringLiteral("llama3.2:3b"));
+            QCOMPARE(ctrl.aiModel(), QStringLiteral("llama3.2:3b"));
+        }
+
+        {
+            DictationController restored(tempDir.path());
+            QCOMPARE(restored.aiMode(), 1);
+            QCOMPARE(restored.smartFormatting(), true);
+            QCOMPARE(restored.aiModel(), QStringLiteral("llama3.2:3b"));
+
+            restored.setSmartFormatting(false);
+            QCOMPARE(restored.aiMode(), 0);
+            QCOMPARE(restored.smartFormatting(), false);
+        }
+    }
 };
 
 QTEST_MAIN(TestKDictation)

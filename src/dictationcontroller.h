@@ -27,6 +27,9 @@ class DictationController : public QObject
     Q_PROPERTY(double audioLevel READ audioLevel NOTIFY audioLevelChanged)
     Q_PROPERTY(QString language READ language WRITE setLanguage NOTIFY languageChanged)
     Q_PROPERTY(bool smartFormatting READ smartFormatting WRITE setSmartFormatting NOTIFY smartFormattingChanged)
+    Q_PROPERTY(int aiMode READ aiMode WRITE setAiMode NOTIFY aiModeChanged)
+    Q_PROPERTY(QString aiModel READ aiModel WRITE setAiModel NOTIFY aiModelChanged)
+    Q_PROPERTY(QStringList availableAiModels READ availableAiModels NOTIFY availableAiModelsChanged)
     Q_PROPERTY(bool directInsertion READ directInsertion WRITE setDirectInsertion NOTIFY directInsertionChanged)
     Q_PROPERTY(bool pushToTalk READ pushToTalk WRITE setPushToTalk NOTIFY pushToTalkChanged)
     Q_PROPERTY(QString lastTranscript READ lastTranscript NOTIFY lastTranscriptChanged)
@@ -46,6 +49,11 @@ public:
     void setLanguage(const QString &lang);
     bool smartFormatting() const;
     void setSmartFormatting(bool enabled);
+    int aiMode() const;
+    void setAiMode(int mode);
+    QString aiModel() const;
+    void setAiModel(const QString &model);
+    QStringList availableAiModels() const;
     bool directInsertion() const;
     void setDirectInsertion(bool enabled);
     bool pushToTalk() const;
@@ -58,6 +66,7 @@ public:
 
     static QString cleanWhisperOutput(const QString &raw);
     static QString applyVoiceCommands(const QString &text);
+    static QString removeFillerWords(const QString &text, const QString &lang = QStringLiteral("es"));
     static double computeWavRmsLevel(const QByteArray &pcmS16Data);
 
 public Q_SLOTS:
@@ -67,6 +76,7 @@ public Q_SLOTS:
     Q_INVOKABLE void copyText(const QString &text);
     Q_INVOKABLE void clearHistory();
     Q_INVOKABLE void addHistoryEntry(const QString &text, const QString &lang = QStringLiteral("es"));
+    Q_INVOKABLE void refreshAvailableAiModels();
 
     // D-Bus methods
     void Toggle();
@@ -84,6 +94,9 @@ Q_SIGNALS:
     void audioLevelChanged();
     void languageChanged();
     void smartFormattingChanged();
+    void aiModeChanged();
+    void aiModelChanged();
+    void availableAiModelsChanged();
     void directInsertionChanged();
     void pushToTalkChanged();
     void lastTranscriptChanged();
@@ -111,6 +124,9 @@ private:
     int m_recordingSeconds = 0;
     double m_audioLevel = 0.0;
     QString m_language = QStringLiteral("es");
+    int m_aiMode = 0; // 0: Direct (Desactivado), 1: Cleaned (Puliendo), 2: Structured (Profesional)
+    QString m_aiModel = QStringLiteral("llama3.2:3b");
+    QStringList m_availableAiModels;
     bool m_smartFormatting = false;
     bool m_directInsertion = true;
     bool m_pushToTalk = false;

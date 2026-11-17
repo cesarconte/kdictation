@@ -147,15 +147,23 @@ CachyWindow {
                 }
             }
 
-            // Puntuación inteligente con IA local
+            // Puntuación y refinamiento inteligente con IA local (Ollama)
             CachyToolbarButton {
                 checkable: true
-                checked: Dictation ? Dictation.smartFormatting : false
+                checked: Dictation ? (Dictation.aiMode > 0) : false
                 iconName: "tools-check-spelling"
-                tooltipText: CachyI18n.i18n("Puntuación inteligente con IA local (Ollama)")
-                onToggled: (nextState) => {
+                tooltipText: {
+                    if (!Dictation || Dictation.aiMode === 0) {
+                        return CachyI18n.i18n("Refinamiento IA desactivado (modo rápido local). Clic para activar");
+                    }
+                    if (Dictation.aiMode === 1) {
+                        return CachyI18n.i18n("Modo Puliendo activo (") + Dictation.aiModel + CachyI18n.i18n(": elimina muletillas y ortografía). Clic para modo Estructurado");
+                    }
+                    return CachyI18n.i18n("Modo Estructurado activo (") + Dictation.aiModel + CachyI18n.i18n(": redacción profesional). Clic para desactivar");
+                }
+                onClicked: {
                     if (Dictation) {
-                        Dictation.smartFormatting = nextState;
+                        Dictation.aiMode = (Dictation.aiMode + 1) % 3;
                     }
                 }
             }

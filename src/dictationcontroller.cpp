@@ -36,6 +36,7 @@ DictationController::DictationController(const QString &storageDir, QObject *par
 {
     QDir().mkpath(m_storageDir);
     loadState();
+    refreshAvailableAiModels();
 
     m_timer.setInterval(1000);
     connect(&m_timer, &QTimer::timeout, this, [this]() {
@@ -56,7 +57,10 @@ DictationController::DictationController(const QString &storageDir, QObject *par
     });
 
     connect(m_whisperEngine.get(), &WhisperEngine::transcriptionReady, this, [this](const QString &rawTranscript) {
-        const QString cleaned = applyVoiceCommands(cleanWhisperOutput(rawTranscript));
+        QString cleaned = cleanWhisperOutput(rawTranscript);
+        cleaned = applyVoiceCommands(cleaned);
+        cleaned = removeFillerWords(cleaned, m_language);
+
         if (cleaned.isEmpty()) {
             m_transcribing = false;
             m_statusMessage = QStringLiteral("No se detectó voz en la grabación");
@@ -65,7 +69,7 @@ DictationController::DictationController(const QString &storageDir, QObject *par
             return;
         }
 
-        if (m_smartFormatting) {
+        if (m_aiMode > 0) {
             runSmartFormattingPass(cleaned);
         } else {
             m_transcribing = false;
@@ -133,17 +137,92 @@ void DictationController::setLanguage(const QString &lang)
 
 bool DictationController::smartFormatting() const
 {
-    return m_smartFormatting;
+    return m_aiMode > 0;
 }
 
 void DictationController::setSmartFormatting(bool enabled)
 {
-    if (m_smartFormatting == enabled) {
+    const int newMode = enabled ? (m_aiMode == 0 ? 1 : m_aiMode) : 0;
+    setAiMode(newMode);
+}
+
+int DictationController::aiMode() const
+{
+    return m_aiMode;
+}
+
+void DictationController::setAiMode(int mode)
+{
+    const int clamped = std::clamp(mode, 0, 2);
+    if (m_aiMode == clamped) {
         return;
     }
-    m_smartFormatting = enabled;
+    const bool prevSmart = (m_aiMode > 0);
+    m_aiMode = clamped;
+    m_smartFormatting = (m_aiMode > 0);
     saveState();
-    Q_EMIT smartFormattingChanged();
+    Q_EMIT aiModeChanged();
+    if (prevSmart != m_smartFormatting) {
+        Q_EMIT smartFormattingChanged();
+    }
+}
+
+QString DictationController::aiModel() const
+{
+    return m_aiModel;
+}
+
+void DictationController::setAiModel(const QString &model)
+{
+    const QString trimmed = model.trimmed();
+    if (m_aiModel == trimmed || trimmed.isEmpty()) {
+        return;
+    }
+    m_aiModel = trimmed;
+    saveState();
+    Q_EMIT aiModelChanged();
+}
+
+QStringList DictationController::availableAiModels() const
+{
+    return m_availableAiModels;
+}
+
+void DictationController::refreshAvailableAiModels()
+{
+    QNetworkRequest req(QUrl(QStringLiteral("http://127.0.0.1:11434/api/tags")));
+    req.setTransferTimeout(3000);
+    QNetworkReply *reply = m_nam.get(req);
+    connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+        if (reply->error() == QNetworkReply::NoError) {
+            const QJsonDocument doc = QJsonDocument::fromJson(reply->readAll());
+            const QJsonArray models = doc.object().value(QStringLiteral("models")).toArray();
+            QStringList modelNames;
+            for (const QJsonValue &val : models) {
+                const QString name = val.toObject().value(QStringLiteral("name")).toString();
+                if (!name.isEmpty()) {
+                    modelNames.append(name);
+                }
+            }
+            if (!modelNames.isEmpty()) {
+                m_availableAiModels = modelNames;
+                Q_EMIT availableAiModelsChanged();
+
+                if (!m_availableAiModels.contains(m_aiModel)) {
+                    // Prefer ultralight / fastest model
+                    if (m_availableAiModels.contains(QStringLiteral("llama3.2:3b"))) {
+                        m_aiModel = QStringLiteral("llama3.2:3b");
+                    } else if (m_availableAiModels.contains(QStringLiteral("qwen2.5:7b"))) {
+                        m_aiModel = QStringLiteral("qwen2.5:7b");
+                    } else {
+                        m_aiModel = m_availableAiModels.first();
+                    }
+                    Q_EMIT aiModelChanged();
+                }
+            }
+        }
+        reply->deleteLater();
+    });
 }
 
 bool DictationController::directInsertion() const
@@ -283,6 +362,67 @@ QString DictationController::applyVoiceCommands(const QString &text)
     out.replace(spaceBeforePunctRe, QStringLiteral("\\1"));
 
     return out.trimmed();
+}
+
+QString DictationController::removeFillerWords(const QString &text, const QString &lang)
+{
+    if (text.trimmed().isEmpty()) {
+        return QString();
+    }
+
+    QString out = text;
+
+    if (lang.startsWith(QLatin1String("es"), Qt::CaseInsensitive)) {
+        // 1. Eliminar repetición accidental de palabras contiguas (tartamudeo: "el el", "vamos vamos")
+        static const QRegularExpression stutterRe(
+            QStringLiteral(R"(\b([a-zA-ZáéíóúüñÁÉÍÓÚÜÑ]+)\s+\1\b)"),
+            QRegularExpression::CaseInsensitiveOption);
+        out.replace(stutterRe, QStringLiteral("\\1"));
+
+        // 2. Muletillas y sonidos de titubeo (eh, em, este, mmm, ah)
+        static const QRegularExpression hesitationRe(
+            QStringLiteral(R"(\b(?:eh+|em+|este+|mmm+|ah+)\b)"),
+            QRegularExpression::CaseInsensitiveOption);
+        out.replace(hesitationRe, QStringLiteral(""));
+
+        // 3. Muletillas conversacionales al inicio de frase o encadenadas
+        static const QRegularExpression starterFillerRe(
+            QStringLiteral(R"(^(?:\s*(?:bueno|pues|o sea|en plan|digamos que)[,\s]*)+)"),
+            QRegularExpression::CaseInsensitiveOption);
+        out.replace(starterFillerRe, QStringLiteral(""));
+
+        static const QRegularExpression inlineFillerRe(
+            QStringLiteral(R"((?:,\s*|\s+)(?:o sea|en plan)(?:,\s*|\s+))"),
+            QRegularExpression::CaseInsensitiveOption);
+        out.replace(inlineFillerRe, QStringLiteral(", "));
+    } else if (lang.startsWith(QLatin1String("en"), Qt::CaseInsensitive)) {
+        static const QRegularExpression stutterRe(
+            QStringLiteral(R"(\b([a-zA-Z]+)\s+\1\b)"),
+            QRegularExpression::CaseInsensitiveOption);
+        out.replace(stutterRe, QStringLiteral("\\1"));
+
+        static const QRegularExpression hesitationRe(
+            QStringLiteral(R"(\b(?:uh+|um+|er+|ah+|like,?\s+|you know,?\s+)\b)"),
+            QRegularExpression::CaseInsensitiveOption);
+        out.replace(hesitationRe, QStringLiteral(""));
+    }
+
+    // Normalizar signos y espacios residuales
+    static const QRegularExpression orphanLeadingPunctRe(QStringLiteral(R"(^[,\s;:.-]+)"));
+    out.remove(orphanLeadingPunctRe);
+    static const QRegularExpression multiSpaceRe(QStringLiteral(R"([ \t]{2,})"));
+    out.replace(multiSpaceRe, QStringLiteral(" "));
+    static const QRegularExpression spaceBeforePunctRe(QStringLiteral(R"( +([,.;:?!]))"));
+    out.replace(spaceBeforePunctRe, QStringLiteral("\\1"));
+    static const QRegularExpression multiCommaRe(QStringLiteral(R"(,{2,})"));
+    out.replace(multiCommaRe, QStringLiteral(","));
+
+    out = out.trimmed();
+    if (!out.isEmpty()) {
+        out[0] = out[0].toUpper();
+    }
+
+    return out;
 }
 
 double DictationController::computeWavRmsLevel(const QByteArray &pcmS16Data)
@@ -457,7 +597,11 @@ void DictationController::loadState()
 
     const QJsonObject root = doc.object();
     m_language = root.value(QStringLiteral("language")).toString(QStringLiteral("es"));
-    m_smartFormatting = root.value(QStringLiteral("smartFormatting")).toBool(false);
+    m_aiMode = root.contains(QStringLiteral("aiMode"))
+        ? root.value(QStringLiteral("aiMode")).toInt(0)
+        : (root.value(QStringLiteral("smartFormatting")).toBool(false) ? 1 : 0);
+    m_aiModel = root.value(QStringLiteral("aiModel")).toString(QStringLiteral("llama3.2:3b"));
+    m_smartFormatting = (m_aiMode > 0);
     m_directInsertion = root.value(QStringLiteral("directInsertion")).toBool(true);
     m_pushToTalk = root.value(QStringLiteral("pushToTalk")).toBool(false);
 
@@ -484,6 +628,8 @@ void DictationController::saveState() const
     QJsonObject root;
     root.insert(QStringLiteral("language"), m_language);
     root.insert(QStringLiteral("smartFormatting"), m_smartFormatting);
+    root.insert(QStringLiteral("aiMode"), m_aiMode);
+    root.insert(QStringLiteral("aiModel"), m_aiModel);
     root.insert(QStringLiteral("directInsertion"), m_directInsertion);
     root.insert(QStringLiteral("pushToTalk"), m_pushToTalk);
 
@@ -501,18 +647,39 @@ void DictationController::saveState() const
 
 void DictationController::runSmartFormattingPass(const QString &rawTranscript)
 {
-    m_statusMessage = QStringLiteral("Puliendo puntuación con IA local...");
+    const QString model = m_aiModel.isEmpty() ? QStringLiteral("llama3.2:3b") : m_aiModel;
+    m_statusMessage = QStringLiteral("Puliendo con IA local (%1)...").arg(model);
     Q_EMIT statusMessageChanged();
 
     QJsonObject payload;
-    payload.insert(QStringLiteral("model"), QStringLiteral("qwen2.5:7b"));
+    payload.insert(QStringLiteral("model"), model);
     payload.insert(QStringLiteral("stream"), false);
+    payload.insert(QStringLiteral("keep_alive"), QStringLiteral("15m"));
+
+    QJsonObject options;
+    options.insert(QStringLiteral("temperature"), 0.1);
+    options.insert(QStringLiteral("num_predict"), qMax(128, rawTranscript.length() * 2));
+    options.insert(QStringLiteral("top_p"), 0.9);
+    payload.insert(QStringLiteral("options"), options);
+
+    QString systemPrompt;
+    if (m_aiMode == 2) {
+        systemPrompt = QStringLiteral(
+            "Eres un asistente de redacción y dictado profesional. "
+            "Transforma el texto dictado en un texto formal, bien redactado y estructurado con puntuación y sintaxis impecables. "
+            "Devuelve ÚNICAMENTE el texto final, sin explicaciones ni introducciones.");
+    } else {
+        systemPrompt = QStringLiteral(
+            "Eres un asistente de dictado por voz de alta precisión. "
+            "Tu tarea es pulir el texto eliminando muletillas (eh, este, em, o sea, repeticiones) y corrigiendo ortografía, mayúsculas y signos de puntuación. "
+            "Conserva estrictamente las palabras y el sentido original del usuario sin añadir comentarios ni comillas. "
+            "Devuelve ÚNICAMENTE el texto final pulido.");
+    }
 
     QJsonArray messages;
     QJsonObject sysMsg;
     sysMsg.insert(QStringLiteral("role"), QStringLiteral("system"));
-    sysMsg.insert(QStringLiteral("content"),
-                  QStringLiteral("Eres un corrector de dictado por voz. Corrige únicamente la puntuación, mayúsculas y acentos del texto dictado sin cambiar las palabras ni añadir comentarios. Devuelve SOLO el texto corregido."));
+    sysMsg.insert(QStringLiteral("content"), systemPrompt);
     messages.append(sysMsg);
 
     QJsonObject userMsg;
@@ -524,7 +691,7 @@ void DictationController::runSmartFormattingPass(const QString &rawTranscript)
 
     QNetworkRequest req(QUrl(QStringLiteral("http://127.0.0.1:11434/api/chat")));
     req.setHeader(QNetworkRequest::ContentTypeHeader, QStringLiteral("application/json"));
-    req.setTransferTimeout(8000);
+    req.setTransferTimeout(5000);
 
     QNetworkReply *reply = m_nam.post(req, QJsonDocument(payload).toJson());
     connect(reply, &QNetworkReply::finished, this, [this, reply, rawTranscript]() {
@@ -543,6 +710,9 @@ void DictationController::runSmartFormattingPass(const QString &rawTranscript)
             if (!aiText.isEmpty()) {
                 result = aiText;
             }
+        } else {
+            m_statusMessage = QStringLiteral("Listo (IA no disponible, usando modo local)");
+            Q_EMIT statusMessageChanged();
         }
         reply->deleteLater();
         finalizeTranscript(result);
