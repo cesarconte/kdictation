@@ -132,6 +132,31 @@ private Q_SLOTS:
         // In 300ms at 16kHz 16-bit mono (32000 bytes/s), we should have received around 9600 bytes
         QVERIFY(pcm.size() > 0);
     }
+
+    void testWhisperEngineModelDiscovery()
+    {
+        const QString model = WhisperEngine::findDefaultModel();
+        QVERIFY(!model.isEmpty());
+        QVERIFY(QFileInfo::exists(model));
+    }
+
+    void testWhisperEngineWarmModelTranscription()
+    {
+        WhisperEngine engine;
+        const QString model = WhisperEngine::findDefaultModel();
+        QVERIFY(!model.isEmpty());
+
+        const bool loaded = engine.loadModel(model);
+        QVERIFY(loaded);
+        QVERIFY(engine.isModelLoaded());
+
+        // 1.5 seconds of silence (24000 samples = 48000 bytes)
+        QByteArray pcmSilence(48000, 0);
+        const QString transcript = engine.transcribeSync(pcmSilence, QStringLiteral("es"));
+        // Silence will either be empty or produce a bracketed tag like [BLANK_AUDIO] / [Música]
+        const QString cleaned = DictationController::cleanWhisperOutput(transcript);
+        QVERIFY(cleaned.isEmpty());
+    }
 };
 
 QTEST_MAIN(TestKDictation)

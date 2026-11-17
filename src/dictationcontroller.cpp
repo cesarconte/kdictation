@@ -16,8 +16,10 @@
 #include <QJsonObject>
 #include <QNetworkReply>
 #include <QNetworkRequest>
+#include <QProcess>
 #include <QRegularExpression>
 #include <QStandardPaths>
+#include <QThreadPool>
 #include <QUuid>
 
 #include <cmath>
@@ -29,6 +31,7 @@ DictationController::DictationController(const QString &storageDir, QObject *par
                        ? QStandardPaths::writableLocation(QStandardPaths::AppDataLocation)
                        : storageDir)
     , m_recorder(std::make_unique<PipeWireRecorder>(this))
+    , m_whisperEngine(std::make_unique<WhisperEngine>(this))
 {
     QDir().mkpath(m_storageDir);
     loadState();
@@ -50,16 +53,44 @@ DictationController::DictationController(const QString &storageDir, QObject *par
         m_statusMessage = errMsg;
         Q_EMIT statusMessageChanged();
     });
+
+    connect(m_whisperEngine.get(), &WhisperEngine::transcriptionReady, this, [this](const QString &rawTranscript) {
+        const QString cleaned = applyVoiceCommands(cleanWhisperOutput(rawTranscript));
+        if (cleaned.isEmpty()) {
+            m_transcribing = false;
+            m_statusMessage = QStringLiteral("No se detectó voz en la grabación");
+            Q_EMIT transcribingChanged();
+            Q_EMIT statusMessageChanged();
+            return;
+        }
+
+        if (m_smartFormatting) {
+            runSmartFormattingPass(cleaned);
+        } else {
+            m_transcribing = false;
+            Q_EMIT transcribingChanged();
+            finalizeTranscript(cleaned);
+        }
+    });
+
+    connect(m_whisperEngine.get(), &WhisperEngine::transcriptionFailed, this, [this](const QString &errMsg) {
+        m_transcribing = false;
+        m_statusMessage = errMsg;
+        Q_EMIT transcribingChanged();
+        Q_EMIT statusMessageChanged();
+    });
+
+    // Precargar modelo Whisper en memoria en segundo plano (Warm Model)
+    const QString defaultModel = WhisperEngine::findDefaultModel();
+    if (!defaultModel.isEmpty()) {
+        m_whisperEngine->loadModelAsync(defaultModel);
+    }
 }
 
 DictationController::~DictationController()
 {
     if (m_recorder && m_recorder->isRecording()) {
         m_recorder->stopRecording();
-    }
-    if (m_whisperProcess && m_whisperProcess->state() != QProcess::NotRunning) {
-        m_whisperProcess->kill();
-        m_whisperProcess->waitForFinished(500);
     }
 }
 
@@ -277,14 +308,17 @@ void DictationController::stopRecording()
         return;
     }
 
-    m_currentWavPath = m_storageDir + QStringLiteral("/dictation_capture.wav");
-    if (!PipeWireRecorder::savePcmToWavFile(m_currentWavPath, pcmData, 16000, 1)) {
-        m_statusMessage = QStringLiteral("Error al generar WAV desde PipeWire");
-        Q_EMIT statusMessageChanged();
-        return;
-    }
+    startWhisperTranscription(pcmData);
+}
 
-    runWhisperTranscription(m_currentWavPath);
+void DictationController::startWhisperTranscription(const QByteArray &pcmData)
+{
+    m_transcribing = true;
+    m_statusMessage = QStringLiteral("Transcribiendo con libwhisper (Warm Model)...");
+    Q_EMIT transcribingChanged();
+    Q_EMIT statusMessageChanged();
+
+    m_whisperEngine->transcribeAsync(pcmData, m_language);
 }
 
 void DictationController::copyText(const QString &text)
@@ -412,65 +446,6 @@ void DictationController::saveState() const
     }
 }
 
-void DictationController::runWhisperTranscription(const QString &wavPath)
-{
-    const QString whisperBin = findWhisperBinary();
-    const QString modelPath = findWhisperModel();
-
-    if (whisperBin.isEmpty() || modelPath.isEmpty()) {
-        m_statusMessage = QStringLiteral("Whisper o modelo ggml-base.bin no encontrado");
-        Q_EMIT statusMessageChanged();
-        return;
-    }
-
-    m_transcribing = true;
-    m_statusMessage = QStringLiteral("Transcribiendo con Whisper IA...");
-    Q_EMIT transcribingChanged();
-    Q_EMIT statusMessageChanged();
-
-    m_whisperProcess = new QProcess(this);
-    m_whisperProcess->setProgram(whisperBin);
-    m_whisperProcess->setArguments({
-        QStringLiteral("-m"), modelPath,
-        QStringLiteral("-l"), m_language,
-        QStringLiteral("-nt"),
-        QStringLiteral("-f"), wavPath
-    });
-
-    connect(m_whisperProcess, &QProcess::finished, this, [this](int exitCode, QProcess::ExitStatus) {
-        const QString stdoutText = QString::fromUtf8(m_whisperProcess->readAllStandardOutput());
-        m_whisperProcess->deleteLater();
-        m_whisperProcess = nullptr;
-
-        if (exitCode != 0) {
-            m_transcribing = false;
-            m_statusMessage = QStringLiteral("Error al ejecutar Whisper");
-            Q_EMIT transcribingChanged();
-            Q_EMIT statusMessageChanged();
-            return;
-        }
-
-        const QString cleaned = applyVoiceCommands(cleanWhisperOutput(stdoutText));
-        if (cleaned.isEmpty()) {
-            m_transcribing = false;
-            m_statusMessage = QStringLiteral("No se detectó voz en la grabación");
-            Q_EMIT transcribingChanged();
-            Q_EMIT statusMessageChanged();
-            return;
-        }
-
-        if (m_smartFormatting) {
-            runSmartFormattingPass(cleaned);
-        } else {
-            m_transcribing = false;
-            Q_EMIT transcribingChanged();
-            finalizeTranscript(cleaned);
-        }
-    });
-
-    m_whisperProcess->start();
-}
-
 void DictationController::runSmartFormattingPass(const QString &rawTranscript)
 {
     m_statusMessage = QStringLiteral("Puliendo puntuación con IA local...");
@@ -527,34 +502,4 @@ void DictationController::finalizeTranscript(const QString &finalText)
     copyText(finalText);
     m_statusMessage = QStringLiteral("Dictado copiado al portapapeles (Ctrl+V para pegar)");
     Q_EMIT statusMessageChanged();
-}
-
-QString DictationController::findWhisperBinary()
-{
-    const QString localBin = QDir::homePath() + QStringLiteral("/.local/bin/whisper-cli");
-    if (QFileInfo::exists(localBin)) {
-        return localBin;
-    }
-    return QStandardPaths::findExecutable(QStringLiteral("whisper-cli"));
-}
-
-QString DictationController::findWhisperModel()
-{
-    const QString located = QStandardPaths::locate(QStandardPaths::GenericDataLocation, QStringLiteral("kity/models/ggml-base.bin"));
-    if (!located.isEmpty()) {
-        return located;
-    }
-    const QString sysModel = QStringLiteral("/usr/share/kity/models/ggml-base.bin");
-    if (QFileInfo::exists(sysModel)) {
-        return sysModel;
-    }
-    const QString kityModel = QDir::homePath() + QStringLiteral("/.local/share/kity/models/ggml-base.bin");
-    if (QFileInfo::exists(kityModel)) {
-        return kityModel;
-    }
-    const QString kiriModel = QDir::homePath() + QStringLiteral("/.local/share/kiri/models/ggml-base.bin");
-    if (QFileInfo::exists(kiriModel)) {
-        return kiriModel;
-    }
-    return QString();
 }

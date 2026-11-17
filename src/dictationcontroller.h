@@ -6,10 +6,10 @@
 #pragma once
 
 #include "pipewirerecorder.h"
+#include "whisperengine.h"
 
 #include <QNetworkAccessManager>
 #include <QObject>
-#include <QProcess>
 #include <QTimer>
 #include <QVariantList>
 
@@ -83,15 +83,13 @@ Q_SIGNALS:
 private:
     void loadState();
     void saveState() const;
-    void runWhisperTranscription(const QString &wavPath);
+    void startWhisperTranscription(const QByteArray &pcmData);
     void runSmartFormattingPass(const QString &rawTranscript);
     void finalizeTranscript(const QString &finalText);
-    static QString findWhisperBinary();
-    static QString findWhisperModel();
 
     QString m_storageDir;
     std::unique_ptr<PipeWireRecorder> m_recorder;
-    QProcess *m_whisperProcess = nullptr;
+    std::unique_ptr<WhisperEngine> m_whisperEngine;
     QTimer m_timer;
     QNetworkAccessManager m_nam;
 
