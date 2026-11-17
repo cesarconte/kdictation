@@ -1,0 +1,3 @@
+[D-BUS Service]
+Name=org.cesar.kdictation
+Exec=/usr/bin/kdictation --daemon

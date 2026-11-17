@@ -45,6 +45,9 @@ int main(int argc, char *argv[])
     QCommandLineOption stopOpt(QStringLiteral("stop"),
                                QStringLiteral("Stop recording and transcribe."));
     parser.addOption(stopOpt);
+    QCommandLineOption daemonOpt(QStringLiteral("daemon"),
+                                 QStringLiteral("Run in background as a resident D-Bus voice service without showing the HUD"));
+    parser.addOption(daemonOpt);
     QCommandLineOption screenshotOpt(QStringLiteral("screenshot"),
                                      QStringLiteral("Capture window screenshot and exit"),
                                      QStringLiteral("path"));
@@ -63,6 +66,9 @@ int main(int argc, char *argv[])
                 iface.call(QStringLiteral("StartDictation"));
             } else if (parser.isSet(stopOpt)) {
                 iface.call(QStringLiteral("StopDictation"));
+            } else if (parser.isSet(daemonOpt)) {
+                // Already running as daemon/instance
+                return 0;
             } else {
                 iface.call(QStringLiteral("Toggle"));
             }
@@ -73,7 +79,7 @@ int main(int argc, char *argv[])
     DictationController controller;
     bus.registerObject(QStringLiteral("/Dictation"),
                        &controller,
-                       QDBusConnection::ExportAllSlots);
+                       QDBusConnection::ExportAllContents);
 
     // Register global shortcut Meta+Alt+D via KGlobalAccel with both Toggle and Push-to-Talk support
     auto *toggleAction = new QAction(&app);
@@ -120,7 +126,9 @@ int main(int argc, char *argv[])
         }
     }
 
-    if (parser.isSet(toggleOpt)) {
+    if (parser.isSet(daemonOpt)) {
+        controller.setHudVisible(false);
+    } else if (parser.isSet(toggleOpt)) {
         controller.startRecording();
     }
 

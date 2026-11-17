@@ -127,7 +127,6 @@ private:
     QTimer m_timer;
     QNetworkAccessManager m_nam;
 
-    QString m_currentWavPath;
     bool m_recording = false;
     bool m_transcribing = false;
     int m_recordingSeconds = 0;

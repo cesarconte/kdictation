@@ -16,14 +16,11 @@
 #include <QJsonObject>
 #include <QNetworkReply>
 #include <QNetworkRequest>
-#include <QProcess>
 #include <QRegularExpression>
 #include <QStandardPaths>
-#include <QThreadPool>
 #include <QUuid>
 
 #include <cmath>
-#include <csignal>
 
 DictationController::DictationController(const QString &storageDir, QObject *parent)
     : QObject(parent)

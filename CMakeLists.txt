@@ -46,5 +46,6 @@ if(BUILD_TESTING)
 endif()
 
 install(FILES org.cesar.kdictation.desktop DESTINATION ${KDE_INSTALL_APPDIR})
+install(FILES org.cesar.kdictation.service DESTINATION ${KDE_INSTALL_DBUSSERVICEDIR})
 
 feature_summary(WHAT ALL FATAL_ON_MISSING_REQUIRED_PACKAGES)

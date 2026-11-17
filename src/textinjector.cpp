@@ -133,9 +133,11 @@ void TextInjector::copyToClipboard(const QString &text)
         clip->setText(text, QClipboard::Selection);
     }
 
-    QProcess wlCopy;
-    wlCopy.start(QStringLiteral("wl-copy"), {text});
-    wlCopy.waitForFinished(1000);
+    // Sincronizar de forma no bloqueante con el portapapeles nativo de Wayland
+    static const bool hasWlCopy = !QStandardPaths::findExecutable(QStringLiteral("wl-copy")).isEmpty();
+    if (hasWlCopy) {
+        QProcess::startDetached(QStringLiteral("wl-copy"), {text});
+    }
 }
 
 bool TextInjector::sendPasteKeystrokes()
@@ -145,18 +147,18 @@ bool TextInjector::sendPasteKeystrokes()
         return false;
     }
 
-    // Emulate Ctrl+V: KeyDown(Ctrl) -> KeyDown(V) -> KeyUp(V) -> KeyUp(Ctrl)
+    // Emulate Ctrl+V con pausas de baja latencia adaptadas al compositor KWin (10 ms)
     org_kde_kwin_fake_input_keyboard_key(m_fakeInput, KEY_LEFTCTRL, 1);
     wl_display_flush(m_display);
-    QThread::msleep(20);
+    QThread::msleep(10);
 
     org_kde_kwin_fake_input_keyboard_key(m_fakeInput, KEY_V, 1);
     wl_display_flush(m_display);
-    QThread::msleep(25);
+    QThread::msleep(15);
 
     org_kde_kwin_fake_input_keyboard_key(m_fakeInput, KEY_V, 0);
     wl_display_flush(m_display);
-    QThread::msleep(20);
+    QThread::msleep(10);
 
     org_kde_kwin_fake_input_keyboard_key(m_fakeInput, KEY_LEFTCTRL, 0);
     wl_display_flush(m_display);
@@ -172,18 +174,18 @@ bool TextInjector::sendTerminalPasteKeystrokes()
         return false;
     }
 
-    // Emulate Shift+Insert: KeyDown(Shift) -> KeyDown(Insert) -> KeyUp(Insert) -> KeyUp(Shift)
+    // Emulate Shift+Insert
     org_kde_kwin_fake_input_keyboard_key(m_fakeInput, KEY_LEFTSHIFT, 1);
     wl_display_flush(m_display);
-    QThread::msleep(20);
+    QThread::msleep(10);
 
     org_kde_kwin_fake_input_keyboard_key(m_fakeInput, KEY_INSERT, 1);
     wl_display_flush(m_display);
-    QThread::msleep(25);
+    QThread::msleep(15);
 
     org_kde_kwin_fake_input_keyboard_key(m_fakeInput, KEY_INSERT, 0);
     wl_display_flush(m_display);
-    QThread::msleep(20);
+    QThread::msleep(10);
 
     org_kde_kwin_fake_input_keyboard_key(m_fakeInput, KEY_LEFTSHIFT, 0);
     wl_display_flush(m_display);
@@ -236,7 +238,7 @@ bool TextInjector::injectText(const QString &text, InsertionMode mode)
     }
 
     // Small delay so that the active window regains full focus after HUD interaction
-    QThread::msleep(60);
+    QThread::msleep(35);
 
     bool ok = false;
     if (ensureConnected() && m_fakeInput) {
