@@ -66,7 +66,7 @@ double PipeWireRecorder::calculateRmsLevel(const int16_t *samples, size_t sample
     }
 
     const double rms = std::sqrt(sumSquares / static_cast<double>(sampleCount));
-    return std::clamp(rms * 3.8, 0.0, 1.0);
+    return std::clamp(rms * 5.0, 0.0, 1.0);
 }
 
 void PipeWireRecorder::onStreamProcess(void *userData)

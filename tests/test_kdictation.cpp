@@ -20,9 +20,10 @@ private Q_SLOTS:
     {
         const QString raw = QStringLiteral(
             "[00:00.000 --> 00:02.400]  Hola mundo [BLANK_AUDIO]\n"
-            "[00:02.400 --> 00:04.000] desde KDE Plasma [Música]\n");
+            "[00:02.400 --> 00:04.000] desde KDE Plasma [Música]\n"
+            "[00:04.000 --> 00:06.000] con PipeWire [Música suave] (ruido)\n");
         QCOMPARE(DictationController::cleanWhisperOutput(raw),
-                 QStringLiteral("Hola mundo desde KDE Plasma"));
+                 QStringLiteral("Hola mundo desde KDE Plasma con PipeWire"));
     }
 
     void testApplyVoiceCommands()

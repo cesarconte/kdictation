@@ -226,14 +226,16 @@ QString DictationController::cleanWhisperOutput(const QString &raw)
     QStringList keptLines;
     static const QRegularExpression timestampRe(
         QStringLiteral(R"(^\s*\[[0-9:.]+\s*-->\s*[0-9:.]+\]\s*)"));
-    static const QRegularExpression blankTagRe(
-        QStringLiteral(R"(\[(BLANK_AUDIO|Música|Music|Silence|Silencio|inaudible)\])"),
-        QRegularExpression::CaseInsensitiveOption);
+    static const QRegularExpression bracketTagRe(
+        QStringLiteral(R"(\[[^\]]*\])"));
+    static const QRegularExpression parenTagRe(
+        QStringLiteral(R"(\([^\)]*\))"));
 
     const QStringList lines = raw.split(QLatin1Char('\n'));
     for (QString line : lines) {
         line.remove(timestampRe);
-        line.remove(blankTagRe);
+        line.remove(bracketTagRe);
+        line.remove(parenTagRe);
         line = line.trimmed();
         if (!line.isEmpty()) {
             keptLines.append(line);
@@ -382,8 +384,10 @@ void DictationController::copyText(const QString &text)
 void DictationController::clearHistory()
 {
     m_history.clear();
+    m_lastTranscript.clear();
     saveState();
     Q_EMIT historyChanged();
+    Q_EMIT lastTranscriptChanged();
 }
 
 void DictationController::addHistoryEntry(const QString &text, const QString &lang)
@@ -470,6 +474,8 @@ void DictationController::loadState()
     }
     if (!m_history.isEmpty()) {
         m_lastTranscript = m_history.first().toMap().value(QStringLiteral("text")).toString();
+    } else {
+        m_lastTranscript.clear();
     }
 }
 
