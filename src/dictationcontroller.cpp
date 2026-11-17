@@ -32,6 +32,7 @@ DictationController::DictationController(const QString &storageDir, QObject *par
                        : storageDir)
     , m_recorder(std::make_unique<PipeWireRecorder>(this))
     , m_whisperEngine(std::make_unique<WhisperEngine>(this))
+    , m_injector(std::make_unique<TextInjector>(this))
 {
     QDir().mkpath(m_storageDir);
     loadState();
@@ -143,6 +144,21 @@ void DictationController::setSmartFormatting(bool enabled)
     m_smartFormatting = enabled;
     saveState();
     Q_EMIT smartFormattingChanged();
+}
+
+bool DictationController::directInsertion() const
+{
+    return m_directInsertion;
+}
+
+void DictationController::setDirectInsertion(bool enabled)
+{
+    if (m_directInsertion == enabled) {
+        return;
+    }
+    m_directInsertion = enabled;
+    saveState();
+    Q_EMIT directInsertionChanged();
 }
 
 QString DictationController::lastTranscript() const
@@ -327,15 +343,7 @@ void DictationController::copyText(const QString &text)
         return;
     }
 
-    if (auto *clip = QGuiApplication::clipboard()) {
-        clip->setText(text, QClipboard::Clipboard);
-        clip->setText(text, QClipboard::Selection);
-    }
-
-    QProcess wlCopy;
-    wlCopy.start(QStringLiteral("wl-copy"), {text});
-    wlCopy.waitForFinished(1000);
-
+    TextInjector::copyToClipboard(text);
     m_statusMessage = QStringLiteral("Copiado al portapapeles de Wayland");
     Q_EMIT statusMessageChanged();
 }
@@ -415,6 +423,7 @@ void DictationController::loadState()
     const QJsonObject root = doc.object();
     m_language = root.value(QStringLiteral("language")).toString(QStringLiteral("es"));
     m_smartFormatting = root.value(QStringLiteral("smartFormatting")).toBool(false);
+    m_directInsertion = root.value(QStringLiteral("directInsertion")).toBool(true);
 
     m_history.clear();
     const QJsonArray arr = root.value(QStringLiteral("history")).toArray();
@@ -433,6 +442,7 @@ void DictationController::saveState() const
     QJsonObject root;
     root.insert(QStringLiteral("language"), m_language);
     root.insert(QStringLiteral("smartFormatting"), m_smartFormatting);
+    root.insert(QStringLiteral("directInsertion"), m_directInsertion);
 
     QJsonArray arr;
     for (const QVariant &item : m_history) {
@@ -499,7 +509,17 @@ void DictationController::runSmartFormattingPass(const QString &rawTranscript)
 void DictationController::finalizeTranscript(const QString &finalText)
 {
     addHistoryEntry(finalText, m_language);
-    copyText(finalText);
-    m_statusMessage = QStringLiteral("Dictado copiado al portapapeles (Ctrl+V para pegar)");
+
+    if (m_directInsertion && m_injector) {
+        m_injector->injectText(finalText, TextInjector::InsertionMode::AutoPaste);
+        m_statusMessage = QStringLiteral("Dictado insertado directamente en la ventana activa");
+    } else {
+        if (m_injector) {
+            m_injector->injectText(finalText, TextInjector::InsertionMode::ClipboardOnly);
+        } else {
+            TextInjector::copyToClipboard(finalText);
+        }
+        m_statusMessage = QStringLiteral("Dictado copiado al portapapeles (Ctrl+V para pegar)");
+    }
     Q_EMIT statusMessageChanged();
 }

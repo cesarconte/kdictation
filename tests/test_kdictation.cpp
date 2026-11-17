@@ -157,6 +157,36 @@ private Q_SLOTS:
         const QString cleaned = DictationController::cleanWhisperOutput(transcript);
         QVERIFY(cleaned.isEmpty());
     }
+
+    void testTextInjectorAvailability()
+    {
+        TextInjector injector;
+        // On KDE Plasma 6 Wayland session, org_kde_kwin_fake_input is available
+        const bool available = injector.isAvailable();
+        if (qEnvironmentVariableIsSet("WAYLAND_DISPLAY")) {
+            QVERIFY(available);
+        }
+    }
+
+    void testDirectInsertionToggleAndPersistence()
+    {
+        QTemporaryDir tempDir;
+        QVERIFY(tempDir.isValid());
+
+        {
+            DictationController ctrl(tempDir.path());
+            QCOMPARE(ctrl.directInsertion(), true); // Default is true (Superwhisper parity)
+            ctrl.setDirectInsertion(false);
+            QCOMPARE(ctrl.directInsertion(), false);
+        }
+
+        {
+            DictationController restored(tempDir.path());
+            QCOMPARE(restored.directInsertion(), false);
+            restored.setDirectInsertion(true);
+            QCOMPARE(restored.directInsertion(), true);
+        }
+    }
 };
 
 QTEST_MAIN(TestKDictation)

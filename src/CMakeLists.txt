@@ -5,12 +5,21 @@ add_library(kdictation_core STATIC
     pipewirerecorder.h
     whisperengine.cpp
     whisperengine.h
+    textinjector.cpp
+    textinjector.h
+)
+
+ecm_add_wayland_client_protocol(kdictation_core
+    PROTOCOL protocols/fake-input.xml
+    BASENAME fake-input
 )
 
 target_include_directories(kdictation_core PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_CURRENT_BINARY_DIR}
     ${PIPEWIRE_INCLUDE_DIRS}
     ${WHISPER_INCLUDE_DIRS}
+    ${WAYLAND_CLIENT_INCLUDE_DIRS}
 )
 
 target_link_libraries(kdictation_core PUBLIC
@@ -23,6 +32,7 @@ target_link_libraries(kdictation_core PUBLIC
     KF6::GlobalAccel
     ${PIPEWIRE_LIBRARIES}
     ${WHISPER_LIBRARIES}
+    ${WAYLAND_CLIENT_LIBRARIES}
 )
 
 qt_add_resources(KDICTATION_QRC resources.qrc)

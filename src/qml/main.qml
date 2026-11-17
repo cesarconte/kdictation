@@ -160,6 +160,21 @@ CachyWindow {
                 }
             }
 
+            // Inserción directa en la ventana activa
+            CachyToolbarButton {
+                checkable: true
+                checked: Dictation ? Dictation.directInsertion : true
+                iconName: "edit-paste"
+                tooltipText: (Dictation && Dictation.directInsertion)
+                    ? CachyI18n.i18n("Inserción directa activa (escribe o pega en la ventana activa)")
+                    : CachyI18n.i18n("Solo copiar al portapapeles")
+                onToggled: (nextState) => {
+                    if (Dictation) {
+                        Dictation.directInsertion = nextState;
+                    }
+                }
+            }
+
             // Historial de dictados
             CachyToolbarButton {
                 checkable: true

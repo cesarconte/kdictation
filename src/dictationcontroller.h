@@ -6,6 +6,7 @@
 #pragma once
 
 #include "pipewirerecorder.h"
+#include "textinjector.h"
 #include "whisperengine.h"
 
 #include <QNetworkAccessManager>
@@ -26,6 +27,7 @@ class DictationController : public QObject
     Q_PROPERTY(double audioLevel READ audioLevel NOTIFY audioLevelChanged)
     Q_PROPERTY(QString language READ language WRITE setLanguage NOTIFY languageChanged)
     Q_PROPERTY(bool smartFormatting READ smartFormatting WRITE setSmartFormatting NOTIFY smartFormattingChanged)
+    Q_PROPERTY(bool directInsertion READ directInsertion WRITE setDirectInsertion NOTIFY directInsertionChanged)
     Q_PROPERTY(QString lastTranscript READ lastTranscript NOTIFY lastTranscriptChanged)
     Q_PROPERTY(QString statusMessage READ statusMessage NOTIFY statusMessageChanged)
     Q_PROPERTY(QVariantList history READ history NOTIFY historyChanged)
@@ -43,6 +45,8 @@ public:
     void setLanguage(const QString &lang);
     bool smartFormatting() const;
     void setSmartFormatting(bool enabled);
+    bool directInsertion() const;
+    void setDirectInsertion(bool enabled);
     QString lastTranscript() const;
     QString statusMessage() const;
     QVariantList history() const;
@@ -75,6 +79,7 @@ Q_SIGNALS:
     void audioLevelChanged();
     void languageChanged();
     void smartFormattingChanged();
+    void directInsertionChanged();
     void lastTranscriptChanged();
     void statusMessageChanged();
     void historyChanged();
@@ -90,6 +95,7 @@ private:
     QString m_storageDir;
     std::unique_ptr<PipeWireRecorder> m_recorder;
     std::unique_ptr<WhisperEngine> m_whisperEngine;
+    std::unique_ptr<TextInjector> m_injector;
     QTimer m_timer;
     QNetworkAccessManager m_nam;
 
@@ -100,6 +106,7 @@ private:
     double m_audioLevel = 0.0;
     QString m_language = QStringLiteral("es");
     bool m_smartFormatting = false;
+    bool m_directInsertion = true;
     QString m_lastTranscript;
     QString m_statusMessage = QStringLiteral("Listo para dictar (Meta+Alt+D)");
     QVariantList m_history;

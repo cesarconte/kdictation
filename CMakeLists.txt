@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(kdictation VERSION 0.1.0 LANGUAGES CXX)
+project(kdictation VERSION 0.1.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -34,6 +34,9 @@ find_package(KF6 ${KF_MIN_VERSION} REQUIRED COMPONENTS
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(PIPEWIRE REQUIRED libpipewire-0.3)
 pkg_check_modules(WHISPER REQUIRED whisper)
+pkg_check_modules(WAYLAND_CLIENT REQUIRED wayland-client)
+
+find_package(WaylandScanner REQUIRED)
 
 add_subdirectory(src)
 

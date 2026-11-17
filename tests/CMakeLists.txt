@@ -25,7 +25,7 @@ add_executable(test_layout_audit
     ${TEST_QRC}
 )
 
-target_include_directories(test_layout_audit PRIVATE ../src ${PIPEWIRE_INCLUDE_DIRS} ${WHISPER_INCLUDE_DIRS})
+target_include_directories(test_layout_audit PRIVATE ../src ${CMAKE_BINARY_DIR}/src ${PIPEWIRE_INCLUDE_DIRS} ${WHISPER_INCLUDE_DIRS} ${WAYLAND_CLIENT_INCLUDE_DIRS})
 target_link_libraries(test_layout_audit PRIVATE
     kdictation_core
     Qt6::Core
