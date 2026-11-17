@@ -63,31 +63,31 @@ void WhisperEngine::loadModelAsync(const QString &modelPath)
 
 QString WhisperEngine::findDefaultModel()
 {
-    const QString located = QStandardPaths::locate(
-        QStandardPaths::GenericDataLocation,
-        QStringLiteral("kity/models/ggml-base.bin"));
-    if (!located.isEmpty() && QFileInfo::exists(located)) {
-        return located;
+    // Prioridad 1: Rutas de sistema oficiales en /usr/share
+    const QString sysKDictationBase = QStringLiteral("/usr/share/kdictation/models/ggml-base.bin");
+    if (QFileInfo::exists(sysKDictationBase)) {
+        return sysKDictationBase;
     }
 
-    const QString userBase = QDir::homePath() + QStringLiteral("/.local/share/kity/models/ggml-base.bin");
-    if (QFileInfo::exists(userBase)) {
-        return userBase;
+    const QString sysKityBase = QStringLiteral("/usr/share/kity/models/ggml-base.bin");
+    if (QFileInfo::exists(sysKityBase)) {
+        return sysKityBase;
     }
 
-    const QString userSmall = QDir::homePath() + QStringLiteral("/.local/share/kity/models/ggml-small.bin");
-    if (QFileInfo::exists(userSmall)) {
-        return userSmall;
+    const QString sysWhisperBase = QStringLiteral("/usr/share/whisper-models/ggml-base.bin");
+    if (QFileInfo::exists(sysWhisperBase)) {
+        return sysWhisperBase;
     }
 
-    const QString sysModel = QStringLiteral("/usr/share/kity/models/ggml-base.bin");
-    if (QFileInfo::exists(sysModel)) {
-        return sysModel;
+    // Prioridad 2: Rutas de usuario en ~/.local como respaldo
+    const QString userKDictation = QDir::homePath() + QStringLiteral("/.local/share/kdictation/models/ggml-base.bin");
+    if (QFileInfo::exists(userKDictation)) {
+        return userKDictation;
     }
 
-    const QString kiriModel = QDir::homePath() + QStringLiteral("/.local/share/kiri/models/ggml-base.bin");
-    if (QFileInfo::exists(kiriModel)) {
-        return kiriModel;
+    const QString userKity = QDir::homePath() + QStringLiteral("/.local/share/kity/models/ggml-base.bin");
+    if (QFileInfo::exists(userKity)) {
+        return userKity;
     }
 
     return QString();
@@ -98,11 +98,11 @@ QStringList WhisperEngine::discoverModels()
     QStringList found;
     QStringList seenFileNames;
     const QStringList searchDirs = {
-        QDir::homePath() + QStringLiteral("/.local/share/kdictation/models"),
-        QDir::homePath() + QStringLiteral("/.local/share/kity/models"),
         QStringLiteral("/usr/share/kdictation/models"),
         QStringLiteral("/usr/share/kity/models"),
-        QStringLiteral("/usr/share/whisper-models")
+        QStringLiteral("/usr/share/whisper-models"),
+        QDir::homePath() + QStringLiteral("/.local/share/kdictation/models"),
+        QDir::homePath() + QStringLiteral("/.local/share/kity/models")
     };
 
     for (const QString &dirPath : searchDirs) {
