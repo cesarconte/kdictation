@@ -1,15 +1,17 @@
 /*
-    SPDX-FileCopyrightText: 2026 Cesar
-    SPDX-License-Identifier: GPL-3.0-or-later
-*/
+ * SPDX-FileCopyrightText: 2026 Cesar
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
 
 #pragma once
 
+#include "dictationaiformatter.h"
+#include "dictationhistorymanager.h"
 #include "pipewirerecorder.h"
 #include "textinjector.h"
+#include "voicepostprocessor.h"
 #include "whisperengine.h"
 
-#include <QNetworkAccessManager>
 #include <QObject>
 #include <QTimer>
 #include <QVariantList>
@@ -45,40 +47,53 @@ public:
     explicit DictationController(const QString &storageDir = QString(), QObject *parent = nullptr);
     ~DictationController() override;
 
-    bool recording() const;
-    bool transcribing() const;
-    int recordingSeconds() const;
-    double audioLevel() const;
-    QString language() const;
+    bool recording() const { return m_recording; }
+    bool transcribing() const { return m_transcribing; }
+    int recordingSeconds() const { return m_recordingSeconds; }
+    double audioLevel() const { return m_audioLevel; }
+    QString language() const { return m_state.language; }
     void setLanguage(const QString &lang);
-    QString whisperModel() const;
+    QString whisperModel() const { return m_state.whisperModel; }
     void setWhisperModel(const QString &modelName);
-    QStringList availableWhisperModels() const;
-    bool smartFormatting() const;
+    QStringList availableWhisperModels() const { return m_availableWhisperModels; }
+    bool smartFormatting() const { return m_state.aiMode > 0; }
     void setSmartFormatting(bool enabled);
-    int aiMode() const;
+    int aiMode() const { return m_state.aiMode; }
     void setAiMode(int mode);
-    QString aiModel() const;
+    QString aiModel() const { return m_state.aiModel; }
     void setAiModel(const QString &model);
-    QStringList availableAiModels() const;
-    bool directInsertion() const;
+    QStringList availableAiModels() const { return m_availableAiModels; }
+    bool directInsertion() const { return m_state.directInsertion; }
     void setDirectInsertion(bool enabled);
-    bool pushToTalk() const;
+    bool pushToTalk() const { return m_state.pushToTalk; }
     void setPushToTalk(bool enabled);
     bool autostart() const;
     void setAutostart(bool enabled);
-    bool closeToBackground() const;
+    bool closeToBackground() const { return m_state.closeToBackground; }
     void setCloseToBackground(bool enabled);
-    QString lastTranscript() const;
-    QString statusMessage() const;
-    QVariantList history() const;
-    bool hudVisible() const;
+    QString lastTranscript() const { return m_historyManager.lastTranscript(); }
+    QString statusMessage() const { return m_statusMessage; }
+    QVariantList history() const { return m_historyManager.history(); }
+    bool hudVisible() const { return m_hudVisible; }
     void setHudVisible(bool visible);
 
-    static QString cleanWhisperOutput(const QString &raw);
-    static QString applyVoiceCommands(const QString &text);
-    static QString removeFillerWords(const QString &text, const QString &lang = QStringLiteral("es"));
-    static double computeWavRmsLevel(const QByteArray &pcmS16Data);
+    // Static forwarders preserving backward compatibility & tests
+    static QString cleanWhisperOutput(const QString &raw)
+    {
+        return VoicePostProcessor::cleanWhisperOutput(raw);
+    }
+    static QString applyVoiceCommands(const QString &text)
+    {
+        return VoicePostProcessor::applyVoiceCommands(text);
+    }
+    static QString removeFillerWords(const QString &text, const QString &lang = QStringLiteral("es"))
+    {
+        return VoicePostProcessor::removeFillerWords(text, lang);
+    }
+    static double computeWavRmsLevel(const QByteArray &pcmS16Data)
+    {
+        return VoicePostProcessor::computeWavRmsLevel(pcmS16Data);
+    }
 
 public Q_SLOTS:
     Q_INVOKABLE void toggleRecording();
@@ -129,13 +144,15 @@ Q_SIGNALS:
     void hudVisibleChanged();
 
 private:
-    void loadState();
     void saveState() const;
     void startWhisperTranscription(const QByteArray &pcmData);
-    void runSmartFormattingPass(const QString &rawTranscript);
     void finalizeTranscript(const QString &finalText);
 
     QString m_storageDir;
+    DictationStateData m_state;
+    DictationHistoryManager m_historyManager;
+    DictationAiFormatter m_aiFormatter;
+
     std::unique_ptr<PipeWireRecorder> m_recorder;
     std::unique_ptr<WhisperEngine> m_whisperEngine;
     std::unique_ptr<TextInjector> m_injector;
@@ -143,24 +160,14 @@ private:
     QTimer m_ephemeralTimer;
     bool m_ephemeralMode = false;
     int m_ephemeralTimeoutSeconds = 60;
-    QNetworkAccessManager m_nam;
 
     bool m_recording = false;
     bool m_transcribing = false;
     int m_recordingSeconds = 0;
     double m_audioLevel = 0.0;
-    QString m_language = QStringLiteral("es");
-    QString m_whisperModel;
     QStringList m_availableWhisperModels;
-    int m_aiMode = 0; // 0: Direct (Desactivado), 1: Cleaned (Puliendo), 2: Structured (Profesional)
-    QString m_aiModel = QStringLiteral("llama3.2:3b");
     QStringList m_availableAiModels;
     bool m_smartFormatting = false;
-    bool m_directInsertion = true;
-    bool m_pushToTalk = false;
-    bool m_closeToBackground = true;
-    QString m_lastTranscript;
-    QString m_statusMessage = QStringLiteral("Listo para dictar (Meta+Alt+D)");
-    QVariantList m_history;
-    bool m_hudVisible = true;
+    QString m_statusMessage;
+    bool m_hudVisible = false;
 };

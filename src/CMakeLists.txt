@@ -1,6 +1,12 @@
 add_library(kdictation_core STATIC
     dictationcontroller.cpp
     dictationcontroller.h
+    voicepostprocessor.cpp
+    voicepostprocessor.h
+    dictationaiformatter.cpp
+    dictationaiformatter.h
+    dictationhistorymanager.cpp
+    dictationhistorymanager.h
     pipewirerecorder.cpp
     pipewirerecorder.h
     whisperengine.cpp

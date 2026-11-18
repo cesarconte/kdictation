@@ -1,19 +1,10 @@
 /*
-    SPDX-FileCopyrightText: 2026 Cesar
-    SPDX-License-Identifier: GPL-3.0-or-later
-
-    KDictation — Dictado por voz con IA local.
-
-    Diseño Golden Gate / Liquid Glass (CachyOS.UI):
-      * ventana `CachyWindow` con marco translúcido, cabecera de 44 px con el
-        divisor duro de 1 px y radio de 20 px;
-      * la acción principal (dictar) es el botón redondo de la cabecera, a la
-        izquierda, junto al estado y al cronómetro;
-      * las acciones secundarias (idioma, puntuación con IA, historial) viven
-        en la cabecera derecha;
-      * la transcripción se presenta sobre una `CachyCard`;
-      * toda la paleta, los radios y los espaciados salen de `CachyTheme`.
-*/
+ * SPDX-FileCopyrightText: 2026 Cesar
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ *
+ * KDictation — Dictado por voz con IA local.
+ * Diseño Golden Gate / Liquid Glass (CachyOS.UI).
+ */
 
 pragma ComponentBehavior: Bound
 
@@ -28,8 +19,6 @@ CachyWindow {
 
     title: CachyI18n.i18n("KDictation — Dictado por Voz IA")
 
-    // Canonical proportion of the ecosystem (1.50): the HUD keeps a stable
-    // shape and the history replaces the transcript instead of stretching it.
     width: 480
     height: 320
     minimumWidth: 420
@@ -37,11 +26,11 @@ CachyWindow {
     visible: Dictation ? Dictation.hudVisible : true
 
     showTrafficLights: true
-    showTitleBarDivider: true          // divisor duro de 1 px
-    showWindowFrame: true              // Liquid Glass: blur KWin + rim especular
+    showTitleBarDivider: true
+    showWindowFrame: true
     resizable: true
     cornerRadius: CachyTheme.radiusWindow
-    contentPadded: true                // margen perimetral de 18 px
+    contentPadded: true
 
     property string currentView: "dictation" // "dictation" | "history" | "settings"
     property bool expandedHistory: currentView === "history"
@@ -74,8 +63,6 @@ CachyWindow {
         return (m < 10 ? "0" + m : "" + m) + ":" + (s < 10 ? "0" + s : "" + s);
     }
 
-    // The HUD identifies itself in the leading cluster, so the centred title
-    // is left empty to give the room to the actions.
     headerCenter: [
         Item { width: 1; height: 1 }
     ]
@@ -88,7 +75,6 @@ CachyWindow {
             anchors.verticalCenter: parent.verticalCenter
             spacing: 10
 
-            // Botón de grabación / parada
             Rectangle {
                 id: recordButton
                 Layout.preferredWidth: 34
@@ -134,7 +120,6 @@ CachyWindow {
                 QQC2.ToolTip.delay: 400
             }
 
-            // Estado y cronómetro
             Text {
                 Layout.fillWidth: true
                 Layout.minimumWidth: 0
@@ -154,89 +139,11 @@ CachyWindow {
     // CABECERA — DERECHA: acciones secundarias
     // =========================================================================
     headerActions: [
-        RowLayout {
+        DictationHeaderActions {
             anchors.verticalCenter: parent.verticalCenter
-            spacing: 6
-
-            // Selector de idioma (ES/EN/FR/DE)
-            CachyToolbarButton {
-                text: Dictation ? Dictation.language.toUpperCase() : "ES"
-                tooltipText: CachyI18n.i18n("Cambiar el idioma de Whisper (ES/EN/FR/DE)")
-                onClicked: {
-                    if (!Dictation) return;
-                    const langs = ["es", "en", "fr", "de"];
-                    const idx = langs.indexOf(Dictation.language);
-                    Dictation.language = langs[(idx + 1) % langs.length];
-                }
-            }
-
-            // Puntuación y refinamiento inteligente con IA local (Ollama)
-            CachyToolbarButton {
-                checkable: true
-                checked: Dictation ? (Dictation.aiMode > 0) : false
-                iconName: "tools-check-spelling"
-                tooltipText: {
-                    if (!Dictation || Dictation.aiMode === 0) {
-                        return CachyI18n.i18n("Refinamiento IA desactivado (modo rápido local). Clic para activar");
-                    }
-                    if (Dictation.aiMode === 1) {
-                        return CachyI18n.i18n("Modo Puliendo activo (") + Dictation.aiModel + CachyI18n.i18n(": elimina muletillas y ortografía). Clic para modo Estructurado");
-                    }
-                    return CachyI18n.i18n("Modo Estructurado activo (") + Dictation.aiModel + CachyI18n.i18n(": redacción profesional). Clic para desactivar");
-                }
-                onClicked: {
-                    if (Dictation) {
-                        Dictation.aiMode = (Dictation.aiMode + 1) % 3;
-                    }
-                }
-            }
-
-            // Inserción directa en la ventana activa
-            CachyToolbarButton {
-                checkable: true
-                checked: Dictation ? Dictation.directInsertion : true
-                iconName: "edit-paste"
-                tooltipText: (Dictation && Dictation.directInsertion)
-                    ? CachyI18n.i18n("Inserción directa activa (escribe o pega en la ventana activa)")
-                    : CachyI18n.i18n("Solo copiar al portapapeles")
-                onToggled: (nextState) => {
-                    if (Dictation) {
-                        Dictation.directInsertion = nextState;
-                    }
-                }
-            }
-
-            // Modo de invocación: Push-to-Talk vs Toggle
-            CachyToolbarButton {
-                checkable: true
-                checked: Dictation ? Dictation.pushToTalk : false
-                iconName: (Dictation && Dictation.pushToTalk) ? "microphone-sensitivity-high" : "media-playback-start"
-                tooltipText: (Dictation && Dictation.pushToTalk)
-                    ? CachyI18n.i18n("Modo Push-to-Talk activo (mantén pulsado para hablar)")
-                    : CachyI18n.i18n("Modo Toggle activo (pulsa para alternar dictado)")
-                onToggled: (nextState) => {
-                    if (Dictation) {
-                        Dictation.pushToTalk = nextState;
-                    }
-                }
-            }
-
-            // Historial de dictados
-            CachyToolbarButton {
-                checkable: true
-                checked: root.currentView === "history"
-                iconName: "view-history-symbolic"
-                tooltipText: CachyI18n.i18n("Mostrar el historial de dictados")
-                onToggled: (nextState) => root.currentView = nextState ? "history" : "dictation"
-            }
-
-            // Ajustes y Configuración
-            CachyToolbarButton {
-                checkable: true
-                checked: root.currentView === "settings"
-                iconName: "settings-configure"
-                tooltipText: CachyI18n.i18n("Ajustes y configuración")
-                onToggled: (nextState) => root.currentView = nextState ? "settings" : "dictation"
+            currentView: root.currentView
+            onViewChangeRequested: function(viewName) {
+                root.currentView = viewName;
             }
         }
     ]
@@ -249,47 +156,10 @@ CachyWindow {
             anchors.fill: parent
             spacing: CachyTheme.spacingSmall
 
-            // -----------------------------------------------------------------
-            // Nivel de audio en vivo / Vúmetro dinámico
-            // -----------------------------------------------------------------
-            Rectangle {
-                Layout.fillWidth: true
-                Layout.minimumWidth: 0
-                Layout.preferredHeight: 6
-                radius: 3
-                color: CachyTheme.withAlpha(CachyTheme.textPrimary, 0.10)
-                clip: true
+            // Vúmetro dinámico
+            AudioLevelBar {}
 
-                Rectangle {
-                    id: levelIndicator
-                    height: parent.height
-                    radius: 3
-                    visible: Dictation ? (Dictation.recording || Dictation.transcribing) : false
-                    width: {
-                        if (!Dictation) return 0;
-                        if (Dictation.transcribing) return parent.width;
-                        if (Dictation.recording) return Math.max(6, parent.width * Math.min(1.0, Dictation.audioLevel));
-                        return 0;
-                    }
-                    color: (Dictation && Dictation.recording) ? "#FF3B30" : CachyTheme.accentColor
-
-                    Behavior on width {
-                        NumberAnimation { duration: 60 }
-                    }
-
-                    // Animación pulsante suave durante la transcripción
-                    SequentialAnimation on opacity {
-                        running: Dictation ? Dictation.transcribing : false
-                        loops: Animation.Infinite
-                        NumberAnimation { from: 0.35; to: 1.0; duration: 400; easing.type: Easing.InOutQuad }
-                        NumberAnimation { from: 1.0; to: 0.35; duration: 400; easing.type: Easing.InOutQuad }
-                    }
-                }
-            }
-
-            // -----------------------------------------------------------------
             // Mensaje de estado
-            // -----------------------------------------------------------------
             Text {
                 Layout.fillWidth: true
                 Layout.minimumWidth: 0
@@ -299,367 +169,30 @@ CachyWindow {
                 elide: Text.ElideRight
             }
 
-            // -----------------------------------------------------------------
-            // Superficie del contenido: transcripción actual o historial
-            // -----------------------------------------------------------------
+            // Superficie central del contenido
             CachyCard {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 Layout.minimumWidth: 0
 
                 contentItem: Item {
-
-                    // --- Transcripción actual ---
-                    RowLayout {
+                    // Transcripción actual
+                    DictationView {
                         anchors.fill: parent
-                        spacing: 8
                         visible: root.currentView === "dictation"
-
-                        Text {
-                            Layout.fillWidth: true
-                            Layout.minimumWidth: 0
-                            text: (Dictation && Dictation.lastTranscript.length > 0)
-                                ? Dictation.lastTranscript
-                                : CachyI18n.i18n("Pulsa el micrófono o Meta+Alt+D para dictar. Comandos: «coma», «punto y aparte», «nueva línea»…")
-                            wrapMode: Text.WordWrap
-                            verticalAlignment: Text.AlignVCenter
-                            maximumLineCount: 4
-                            elide: Text.ElideRight
-                            font.pixelSize: 13
-                            color: (Dictation && Dictation.lastTranscript.length > 0)
-                                ? CachyTheme.textPrimary
-                                : CachyTheme.textMuted
-                        }
-
-                        CachyToolbarButton {
-                            iconName: "edit-copy"
-                            tooltipText: CachyI18n.i18n("Copiar la última transcripción")
-                            enabled: Dictation && Dictation.lastTranscript.length > 0
-                            onClicked: {
-                                if (Dictation) {
-                                    Dictation.copyText(Dictation.lastTranscript);
-                                }
-                            }
-                        }
                     }
 
-                    // --- Historial ---
-                    ColumnLayout {
+                    // Historial
+                    HistoryView {
                         anchors.fill: parent
-                        spacing: 6
                         visible: root.currentView === "history"
-
-                        RowLayout {
-                            Layout.fillWidth: true
-                            Layout.minimumWidth: 0
-                            spacing: 6
-
-                            Text {
-                                Layout.fillWidth: true
-                                Layout.minimumWidth: 0
-                                text: CachyI18n.i18n("Historial reciente")
-                                font.pixelSize: 11
-                                font.weight: Font.DemiBold
-                                color: CachyTheme.textMuted
-                                elide: Text.ElideRight
-                            }
-
-                            CachyToolbarButton {
-                                iconName: "edit-clear"
-                                tooltipText: CachyI18n.i18n("Limpiar el historial")
-                                onClicked: {
-                                    if (Dictation) {
-                                        Dictation.clearHistory();
-                                    }
-                                }
-                            }
-                        }
-
-                        ListView {
-                            Layout.fillWidth: true
-                            Layout.fillHeight: true
-                            Layout.minimumWidth: 0
-                            clip: true
-                            spacing: 2
-                            model: Dictation ? Dictation.history : []
-
-                            // Empty state
-                            Text {
-                                anchors.centerIn: parent
-                                width: parent.width - 20
-                                horizontalAlignment: Text.AlignHCenter
-                                visible: Dictation ? Dictation.history.length === 0 : true
-                                text: CachyI18n.i18n("Todavía no hay dictados guardados.")
-                                font.pixelSize: 11
-                                color: CachyTheme.textMuted
-                                wrapMode: Text.WordWrap
-                            }
-
-                            delegate: Rectangle {
-                                id: historyRow
-                                required property var modelData
-
-                                width: ListView.view ? ListView.view.width : 0
-                                height: historyText.implicitHeight + 12
-                                radius: CachyTheme.radiusSmall
-                                color: historyHover.hovered ? CachyTheme.cardBackgroundHover : "transparent"
-
-                                Behavior on color {
-                                    ColorAnimation { duration: 120 }
-                                }
-
-                                HoverHandler {
-                                    id: historyHover
-                                    cursorShape: Qt.PointingHandCursor
-                                }
-
-                                TapHandler {
-                                    onTapped: {
-                                        if (Dictation) {
-                                            Dictation.copyText(historyRow.modelData.text);
-                                        }
-                                    }
-                                }
-
-                                Text {
-                                    id: historyText
-                                    x: 6
-                                    y: 6
-                                    width: Math.max(0, historyRow.width - 12 - 70 - 26)
-                                    text: historyRow.modelData.text || ""
-                                    font.pixelSize: 12
-                                    color: CachyTheme.textPrimary
-                                    wrapMode: Text.WordWrap
-                                    maximumLineCount: 2
-                                    elide: Text.ElideRight
-                                }
-
-                                Text {
-                                    x: Math.max(0, historyRow.width - 70 - 26)
-                                    y: 6
-                                    width: 70
-                                    horizontalAlignment: Text.AlignRight
-                                    text: historyRow.modelData.timestamp || ""
-                                    font.pixelSize: 10
-                                    color: CachyTheme.textMuted
-                                    elide: Text.ElideRight
-                                }
-                            }
-                        }
                     }
 
-                    // --- Ajustes y Configuración ---
-                    ColumnLayout {
+                    // Ajustes
+                    SettingsView {
                         anchors.fill: parent
-                        spacing: 6
                         visible: root.currentView === "settings"
-
-                        RowLayout {
-                            Layout.fillWidth: true
-                            Layout.minimumWidth: 0
-                            spacing: 6
-
-                            Text {
-                                Layout.fillWidth: true
-                                Layout.minimumWidth: 0
-                                text: CachyI18n.i18n("Ajustes de KDictation")
-                                font.pixelSize: 11
-                                font.weight: Font.DemiBold
-                                color: CachyTheme.textMuted
-                                elide: Text.ElideRight
-                            }
-
-                            CachyToolbarButton {
-                                iconName: "window-close"
-                                tooltipText: CachyI18n.i18n("Cerrar ajustes")
-                                onClicked: root.currentView = "dictation"
-                            }
-                        }
-
-                        Flickable {
-                            Layout.fillWidth: true
-                            Layout.fillHeight: true
-                            Layout.minimumWidth: 0
-                            contentWidth: width
-                            contentHeight: settingsCol.implicitHeight
-                            clip: true
-
-                            ColumnLayout {
-                                id: settingsCol
-                                width: parent.width
-                                spacing: 8
-
-                                // 1. Motor Whisper
-                                ColumnLayout {
-                                    Layout.fillWidth: true
-                                    Layout.minimumWidth: 0
-                                    spacing: 2
-
-                                    Text {
-                                        Layout.fillWidth: true
-                                        Layout.minimumWidth: 0
-                                        text: CachyI18n.i18n("Modelo Whisper local")
-                                        font.pixelSize: 11
-                                        font.weight: Font.DemiBold
-                                        color: CachyTheme.textPrimary
-                                        elide: Text.ElideRight
-                                    }
-
-                                    RowLayout {
-                                        Layout.fillWidth: true
-                                        Layout.minimumWidth: 0
-                                        spacing: 6
-
-                                        QQC2.ComboBox {
-                                            id: whisperCombo
-                                            Layout.fillWidth: true
-                                            Layout.minimumWidth: 0
-                                            model: Dictation ? Dictation.availableWhisperModels : []
-                                            currentIndex: {
-                                                if (!Dictation) return -1;
-                                                return model.indexOf(Dictation.whisperModel);
-                                            }
-                                            onActivated: (index) => {
-                                                if (Dictation) {
-                                                    Dictation.whisperModel = model[index];
-                                                }
-                                            }
-                                        }
-
-                                        Text {
-                                            text: CachyI18n.i18n("En RAM")
-                                            font.pixelSize: 10
-                                            color: "#34C759"
-                                        }
-                                    }
-                                }
-
-                                // 2. Refinamiento IA (Ollama)
-                                ColumnLayout {
-                                    Layout.fillWidth: true
-                                    Layout.minimumWidth: 0
-                                    spacing: 2
-
-                                    Text {
-                                        Layout.fillWidth: true
-                                        Layout.minimumWidth: 0
-                                        text: CachyI18n.i18n("Modelo IA local (Ollama)")
-                                        font.pixelSize: 11
-                                        font.weight: Font.DemiBold
-                                        color: CachyTheme.textPrimary
-                                        elide: Text.ElideRight
-                                    }
-
-                                    QQC2.ComboBox {
-                                        id: aiCombo
-                                        Layout.fillWidth: true
-                                        Layout.minimumWidth: 0
-                                        model: Dictation ? Dictation.availableAiModels : []
-                                        currentIndex: {
-                                            if (!Dictation) return -1;
-                                            return model.indexOf(Dictation.aiModel);
-                                        }
-                                        onActivated: (index) => {
-                                            if (Dictation) {
-                                                Dictation.aiModel = model[index];
-                                            }
-                                        }
-                                    }
-                                }
-
-                                // 3. Opciones de inserción, segundo plano y modo
-                                ColumnLayout {
-                                    Layout.fillWidth: true
-                                    Layout.minimumWidth: 0
-                                    spacing: 2
-
-                                    QQC2.CheckBox {
-                                        Layout.fillWidth: true
-                                        Layout.minimumWidth: 0
-                                        text: CachyI18n.i18n("Inserción directa en ventana activa")
-                                        checked: Dictation ? Dictation.directInsertion : true
-                                        onToggled: {
-                                            if (Dictation) Dictation.directInsertion = checked;
-                                        }
-                                    }
-
-                                    QQC2.CheckBox {
-                                        Layout.fillWidth: true
-                                        Layout.minimumWidth: 0
-                                        text: CachyI18n.i18n("Modo Push-to-Talk (mantener pulsado)")
-                                        checked: Dictation ? Dictation.pushToTalk : false
-                                        onToggled: {
-                                            if (Dictation) Dictation.pushToTalk = checked;
-                                        }
-                                    }
-
-                                    QQC2.CheckBox {
-                                        Layout.fillWidth: true
-                                        Layout.minimumWidth: 0
-                                        text: CachyI18n.i18n("Iniciar con el sistema en segundo plano (Modo Demonio)")
-                                        checked: Dictation ? Dictation.autostart : false
-                                        onToggled: {
-                                            if (Dictation) Dictation.autostart = checked;
-                                        }
-                                    }
-
-                                    QQC2.CheckBox {
-                                        Layout.fillWidth: true
-                                        Layout.minimumWidth: 0
-                                        text: CachyI18n.i18n("Permanecer en segundo plano al cerrar la ventana")
-                                        checked: Dictation ? Dictation.closeToBackground : true
-                                        onToggled: {
-                                            if (Dictation) Dictation.closeToBackground = checked;
-                                        }
-                                    }
-                                }
-
-                                // 4. Recordatorio de atajo y botón de salida
-                                RowLayout {
-                                    Layout.fillWidth: true
-                                    Layout.minimumWidth: 0
-                                    spacing: 6
-
-                                    Text {
-                                        text: CachyI18n.i18n("Atajo:")
-                                        font.pixelSize: 10
-                                        color: CachyTheme.textMuted
-                                    }
-
-                                    Rectangle {
-                                        radius: 4
-                                        color: CachyTheme.withAlpha(CachyTheme.textPrimary, 0.08)
-                                        implicitWidth: shortcutLabel.implicitWidth + 12
-                                        implicitHeight: 20
-
-                                        Text {
-                                            id: shortcutLabel
-                                            anchors.centerIn: parent
-                                            text: "Meta + Alt + D"
-                                            font.pixelSize: 10
-                                            font.weight: Font.DemiBold
-                                            color: CachyTheme.accentColor
-                                        }
-                                    }
-
-                                    Item {
-                                        Layout.fillWidth: true
-                                    }
-
-                                    CachyButton {
-                                        destructive: true
-                                        text: CachyI18n.i18n("Salir")
-                                        onClicked: {
-                                            if (Dictation) {
-                                                Dictation.quitApplication();
-                                            } else {
-                                                Qt.quit();
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
+                        onCloseRequested: root.currentView = "dictation"
                     }
                 }
             }

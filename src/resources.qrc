@@ -1,5 +1,10 @@
 <RCC>
     <qresource prefix="/org/cesar/kdictation">
         <file>qml/main.qml</file>
+        <file>qml/AudioLevelBar.qml</file>
+        <file>qml/DictationHeaderActions.qml</file>
+        <file>qml/DictationView.qml</file>
+        <file>qml/HistoryView.qml</file>
+        <file>qml/SettingsView.qml</file>
     </qresource>
 </RCC>
