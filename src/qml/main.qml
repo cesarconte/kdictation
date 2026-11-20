@@ -9,9 +9,7 @@
 pragma ComponentBehavior: Bound
 
 import QtQuick
-import QtQuick.Controls as QQC2
 import QtQuick.Layouts
-import org.kde.kirigami as Kirigami
 import CachyOS.UI
 
 CachyWindow {
@@ -90,11 +88,10 @@ CachyWindow {
 
                 Behavior on color { ColorAnimation { duration: CachyTheme.animFast } }
 
-                Kirigami.Icon {
+                CachyIcon {
                     anchors.centerIn: parent
-                    width: 18
-                    height: 18
-                    source: (Dictation && Dictation.recording)
+                    size: 18
+                    name: (Dictation && Dictation.recording)
                         ? "media-playback-stop"
                         : "audio-input-microphone"
                     color: (Dictation && Dictation.recording) ? "#FFFFFF" : CachyTheme.accentColor
@@ -113,11 +110,12 @@ CachyWindow {
                     }
                 }
 
-                QQC2.ToolTip.visible: recordHover.hovered
-                QQC2.ToolTip.text: (Dictation && Dictation.recording)
-                    ? CachyI18n.i18n("Detener la grabación")
-                    : CachyI18n.i18n("Empezar a dictar (Meta+Alt+D)")
-                QQC2.ToolTip.delay: 400
+                CachyTooltip {
+                    visible: recordHover.hovered
+                    text: (Dictation && Dictation.recording)
+                        ? CachyI18n.i18n("Detener la grabación")
+                        : CachyI18n.i18n("Empezar a dictar (Meta+Alt+D)")
+                }
             }
 
             Text {

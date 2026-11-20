@@ -6,7 +6,6 @@
 pragma ComponentBehavior: Bound
 
 import QtQuick
-import QtQuick.Controls as QQC2
 import QtQuick.Layouts
 import CachyOS.UI
 
@@ -73,7 +72,7 @@ ColumnLayout {
                     Layout.minimumWidth: 0
                     spacing: 6
 
-                    QQC2.ComboBox {
+                    CachyComboBox {
                         id: whisperCombo
                         Layout.fillWidth: true
                         Layout.minimumWidth: 0
@@ -113,7 +112,7 @@ ColumnLayout {
                     elide: Text.ElideRight
                 }
 
-                QQC2.ComboBox {
+                CachyComboBox {
                     id: aiCombo
                     Layout.fillWidth: true
                     Layout.minimumWidth: 0
@@ -136,7 +135,7 @@ ColumnLayout {
                 Layout.minimumWidth: 0
                 spacing: 2
 
-                QQC2.CheckBox {
+                CachyCheckBox {
                     Layout.fillWidth: true
                     Layout.minimumWidth: 0
                     text: CachyI18n.i18n("Inserción directa en ventana activa")
@@ -146,7 +145,7 @@ ColumnLayout {
                     }
                 }
 
-                QQC2.CheckBox {
+                CachyCheckBox {
                     Layout.fillWidth: true
                     Layout.minimumWidth: 0
                     text: CachyI18n.i18n("Modo Push-to-Talk (mantener pulsado)")
@@ -156,7 +155,7 @@ ColumnLayout {
                     }
                 }
 
-                QQC2.CheckBox {
+                CachyCheckBox {
                     Layout.fillWidth: true
                     Layout.minimumWidth: 0
                     text: CachyI18n.i18n("Iniciar con el sistema en segundo plano (Modo Demonio)")
@@ -166,7 +165,7 @@ ColumnLayout {
                     }
                 }
 
-                QQC2.CheckBox {
+                CachyCheckBox {
                     Layout.fillWidth: true
                     Layout.minimumWidth: 0
                     text: CachyI18n.i18n("Permanecer en segundo plano al cerrar la ventana")

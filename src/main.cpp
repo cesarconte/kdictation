@@ -6,6 +6,7 @@
 #include "dictationcontroller.h"
 
 #include <KGlobalAccel>
+#include <KLocalizedString>
 
 #include <QAction>
 #include <QCommandLineParser>
@@ -22,6 +23,7 @@
 int main(int argc, char *argv[])
 {
     QGuiApplication app(argc, argv);
+    KLocalizedString::setApplicationDomain("kdictation");
     app.setApplicationName(QStringLiteral("kdictation"));
     app.setApplicationDisplayName(QStringLiteral("KDictation"));
     app.setOrganizationDomain(QStringLiteral("cesar.org"));
@@ -115,6 +117,7 @@ int main(int argc, char *argv[])
     QQmlApplicationEngine qmlEngine;
     // The CachyOS.UI design system (Liquid Glass) is installed system wide or
     // in the user prefix.
+    qmlEngine.addImportPath(QStringLiteral("/usr/lib/qt6/qml"));
     qmlEngine.addImportPath(QStringLiteral("/home/cesar/.local/lib/qt6/qml"));
     qmlEngine.rootContext()->setContextProperty(QStringLiteral("Dictation"), &controller);
     qmlEngine.load(QUrl(QStringLiteral("qrc:/org/cesar/kdictation/qml/main.qml")));
