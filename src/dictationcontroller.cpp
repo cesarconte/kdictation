@@ -419,6 +419,20 @@ void DictationController::clearHistory()
     m_historyManager.clearHistory(m_storageDir, m_state);
 }
 
+void DictationController::clearLastTranscript()
+{
+    m_historyManager.clearLastTranscript(m_storageDir, m_state);
+    m_statusMessage = QStringLiteral("Transcripción eliminada");
+    Q_EMIT statusMessageChanged();
+}
+
+void DictationController::deleteHistoryEntry(const QString &id)
+{
+    m_historyManager.deleteHistoryEntry(m_storageDir, m_state, id);
+    m_statusMessage = QStringLiteral("Elemento del historial eliminado");
+    Q_EMIT statusMessageChanged();
+}
+
 void DictationController::addHistoryEntry(const QString &text, const QString &lang)
 {
     m_historyManager.addHistoryEntry(m_storageDir, m_state, text, lang);

@@ -12,7 +12,7 @@ import CachyOS.UI
 RowLayout {
     id: root
 
-    spacing: 8
+    spacing: 12
 
     Text {
         Layout.fillWidth: true
@@ -30,13 +30,27 @@ RowLayout {
             : CachyTheme.textMuted
     }
 
-    CachyToolbarButton {
-        iconName: "edit-copy"
-        tooltipText: CachyI18n.i18n("Copiar la última transcripción")
-        enabled: Dictation && Dictation.lastTranscript.length > 0
-        onClicked: {
-            if (Dictation) {
-                Dictation.copyText(Dictation.lastTranscript);
+    ColumnLayout {
+        spacing: 6
+        visible: Boolean(Dictation && Dictation.lastTranscript.length > 0)
+
+        CachyToolbarButton {
+            iconName: "edit-copy"
+            tooltipText: CachyI18n.i18n("Copiar la última transcripción")
+            onClicked: {
+                if (Dictation) {
+                    Dictation.copyText(Dictation.lastTranscript);
+                }
+            }
+        }
+
+        CachyToolbarButton {
+            iconName: "edit-delete"
+            tooltipText: CachyI18n.i18n("Eliminar transcripción actual")
+            onClicked: {
+                if (Dictation) {
+                    Dictation.clearLastTranscript();
+                }
             }
         }
     }

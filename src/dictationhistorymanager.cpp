@@ -82,7 +82,11 @@ DictationStateData DictationHistoryManager::loadState(const QString &storageDir)
     const QJsonArray arr = root.value(QStringLiteral("history")).toArray();
     for (const QJsonValue &val : arr) {
         if (val.isObject()) {
-            m_history.append(val.toObject().toVariantMap());
+            QVariantMap map = val.toObject().toVariantMap();
+            if (!map.contains(QStringLiteral("id")) || map.value(QStringLiteral("id")).toString().isEmpty()) {
+                map.insert(QStringLiteral("id"), QUuid::createUuid().toString(QUuid::WithoutBraces));
+            }
+            m_history.append(map);
         }
     }
     if (!m_history.isEmpty()) {
@@ -150,4 +154,39 @@ void DictationHistoryManager::clearHistory(const QString &storageDir, const Dict
     saveState(storageDir, data);
     Q_EMIT historyChanged();
     Q_EMIT lastTranscriptChanged();
+}
+
+void DictationHistoryManager::clearLastTranscript(const QString &storageDir, const DictationStateData &data)
+{
+    if (!m_history.isEmpty() && m_history.first().toMap().value(QStringLiteral("text")).toString() == m_lastTranscript) {
+        m_history.removeFirst();
+        Q_EMIT historyChanged();
+    }
+    m_lastTranscript.clear();
+    saveState(storageDir, data);
+    Q_EMIT lastTranscriptChanged();
+}
+
+void DictationHistoryManager::deleteHistoryEntry(const QString &storageDir, const DictationStateData &data, const QString &id)
+{
+    if (id.isEmpty()) {
+        return;
+    }
+    for (int i = 0; i < m_history.size(); ++i) {
+        if (m_history.at(i).toMap().value(QStringLiteral("id")).toString() == id) {
+            const QString entryText = m_history.at(i).toMap().value(QStringLiteral("text")).toString();
+            m_history.removeAt(i);
+            if (m_lastTranscript == entryText) {
+                if (!m_history.isEmpty()) {
+                    m_lastTranscript = m_history.first().toMap().value(QStringLiteral("text")).toString();
+                } else {
+                    m_lastTranscript.clear();
+                }
+                Q_EMIT lastTranscriptChanged();
+            }
+            saveState(storageDir, data);
+            Q_EMIT historyChanged();
+            break;
+        }
+    }
 }

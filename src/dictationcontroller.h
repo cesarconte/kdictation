@@ -101,6 +101,8 @@ public Q_SLOTS:
     Q_INVOKABLE void stopRecording();
     Q_INVOKABLE void copyText(const QString &text);
     Q_INVOKABLE void clearHistory();
+    Q_INVOKABLE void clearLastTranscript();
+    Q_INVOKABLE void deleteHistoryEntry(const QString &id);
     Q_INVOKABLE void addHistoryEntry(const QString &text, const QString &lang = QStringLiteral("es"));
     Q_INVOKABLE void refreshAvailableAiModels();
     Q_INVOKABLE void quitApplication();

@@ -79,6 +79,17 @@ private Q_SLOTS:
             QCOMPARE(restored.history().size(), 2);
             QCOMPARE(restored.lastTranscript(), QStringLiteral("Segundo dictado"));
 
+            // Test clearLastTranscript
+            restored.clearLastTranscript();
+            QCOMPARE(restored.lastTranscript(), QString());
+            QCOMPARE(restored.history().size(), 1);
+
+            // Test deleteHistoryEntry
+            const QString remainingId = restored.history().first().toMap().value(QStringLiteral("id")).toString();
+            QVERIFY(!remainingId.isEmpty());
+            restored.deleteHistoryEntry(remainingId);
+            QCOMPARE(restored.history().size(), 0);
+
             restored.clearHistory();
             QCOMPARE(restored.history().size(), 0);
         }

@@ -36,6 +36,8 @@ public:
 
     void addHistoryEntry(const QString &storageDir, const DictationStateData &data, const QString &text, const QString &lang);
     void clearHistory(const QString &storageDir, const DictationStateData &data);
+    void clearLastTranscript(const QString &storageDir, const DictationStateData &data);
+    void deleteHistoryEntry(const QString &storageDir, const DictationStateData &data, const QString &id);
 
     QVariantList history() const { return m_history; }
     QString lastTranscript() const { return m_lastTranscript; }
